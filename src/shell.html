@@ -117,6 +117,12 @@
       var loaderElement = document.getElementById('loader');
 
       var Module = {
+        locateFile: function(path, prefix) {
+            if (path.endsWith(".wasm")) {
+                return prefix + path + "?v=" + Date.now();
+            }
+            return prefix + path;
+        },
         preRun: [],
         postRun: [],
         print: (function() {
