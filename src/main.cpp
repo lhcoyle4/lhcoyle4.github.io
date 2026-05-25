@@ -3308,6 +3308,17 @@ int main(int, char**)
                     return;
                 }
                 
+                // Prevent duplicate/overlapping labels with the exact same name and layer within 80 pixels
+                for (const auto& ql : s_QueuedLabels) {
+                    if (strcmp(ql.text.c_str(), text) == 0 && strcmp(ql.layerName.c_str(), layerName) == 0) {
+                        float dx = ql.pos.x - pos.x;
+                        float dy = ql.pos.y - pos.y;
+                        if (dx * dx + dy * dy < 80.0f * 80.0f) {
+                            return;
+                        }
+                    }
+                }
+                
                 float size = ImGui::GetFontSize() * fontScale;
                 s_QueuedLabels.push_back({ pos, color, text, size, priority, layerName });
             };
@@ -3388,13 +3399,16 @@ int main(int, char**)
                             ptCount++;
                         }
                     }
-                    if (ptCount > 0) {
+                    if (ptCount > 0 && strcmp(country.name, "United States") != 0) {
                         float avgLon = sumLon / ptCount;
                         float avgLat = sumLat / ptCount;
                         ImVec2 labelPos = ProjectLonLat(avgLon, avgLat, canvasCenter, g_MapScale, g_MapOffset);
                         QueueScaledLabel(labelPos, IM_COL32(0, 200, 30, 150), country.name, 4.0f, g_ShowLabelsWorld, 80, "Country");
                     }
                 }
+                // Queue a single United States country label at the center of the coterminous US
+                ImVec2 usLabelPos = ProjectLonLat(-98.5795f, 39.8283f, canvasCenter, g_MapScale, g_MapOffset);
+                QueueScaledLabel(usLabelPos, IM_COL32(0, 200, 30, 150), "United States", 4.0f, g_ShowLabelsWorld, 80, "Country");
             }
 
             // Draw topographic contours (High-resolution Appalachians, Rockies, Cascades, Sierras)
@@ -3927,9 +3941,11 @@ int main(int, char**)
                         snprintf(itemLabel, sizeof(itemLabel), "[%s] %s", item.layerName.c_str(), item.name.c_str());
                         
                         ImGui::PushStyleColor(ImGuiCol_Text, col);
+                        ImGui::PushID((int)idx);
                         if (ImGui::Selectable(itemLabel, false)) {
                             OpenSgeOverview(item.name, item.layerName);
                         }
+                        ImGui::PopID();
                         ImGui::PopStyleColor(); // Text
                     }
                     
