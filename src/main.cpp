@@ -27,9 +27,15 @@ static void MainLoopForEmscripten()     { MainLoopForEmscriptenP(); }
 #endif
 
 // Structs for state
+struct LogSegment {
+    std::string text;
+    ImVec4 color;
+};
+
 struct LogLine {
     std::string text;
     ImVec4 color;
+    std::vector<LogSegment> segments;
 };
 
 struct FSNode {
@@ -206,13 +212,106 @@ bool g_ShowLabelsCities = true;
 bool g_ShowLabelsContours = true;
 
 
+#include <ctime>
+
 // Log function
 void AddLog(const std::string& text, ImVec4 color = ImVec4(0.2f, 1.0f, 0.2f, 1.0f)) {
-    g_ConsoleLog.push_back({ text, color });
+    LogLine line;
+    line.text = text;
+    line.color = color;
+    g_ConsoleLog.push_back(line);
     g_TerminalScrollToBottom = true;
     if (g_ConsoleLog.size() > 100) {
         g_ConsoleLog.erase(g_ConsoleLog.begin());
     }
+}
+
+// Log function overload for colored segments
+void AddLog(const std::vector<LogSegment>& segments) {
+    LogLine line;
+    line.color = ImVec4(1.0f, 1.0f, 1.0f, 1.0f);
+    line.segments = segments;
+    for (const auto& seg : segments) {
+        line.text += seg.text;
+    }
+    g_ConsoleLog.push_back(line);
+    g_TerminalScrollToBottom = true;
+    if (g_ConsoleLog.size() > 100) {
+        g_ConsoleLog.erase(g_ConsoleLog.begin());
+    }
+}
+
+// Helper to get formatted date string for ls
+std::string GetCurrentDateString() {
+    time_t rawtime;
+    struct tm* timeinfo;
+    char buffer[80];
+    time(&rawtime);
+    timeinfo = localtime(&rawtime);
+    strftime(buffer, sizeof(buffer), "%b %d %H:%M", timeinfo);
+    return std::string(buffer);
+}
+
+// Helper to format file sizes
+std::string FormatSize(size_t size) {
+    if (size == 0) return "0";
+    if (size < 1024) return std::to_string(size);
+    double kbs = size / 1024.0;
+    if (kbs < 1024.0) {
+        char buf[32];
+        snprintf(buf, sizeof(buf), "%.1fK", kbs);
+        return std::string(buf);
+    }
+    double mbs = kbs / 1024.0;
+    char buf[32];
+    snprintf(buf, sizeof(buf), "%.1fM", mbs);
+    return std::string(buf);
+}
+
+// Helper to count subdirectories
+size_t CountSubdirs(const FSNode& node) {
+    size_t count = 0;
+    for (const auto& child : node.children) {
+        if (child.is_dir) count++;
+    }
+    return count;
+}
+
+// Helper to add ls entry
+void AddLogLSEntry(const std::string& name, bool is_dir, size_t size, size_t subdirs_count, const std::string& dateStr) {
+    std::string perms = is_dir ? "drwxr-xr-x" : ((name.size() > 3 && name.substr(name.size() - 3) == ".sh") ? "-rwxr-xr-x" : "-rw-r--r--");
+    std::string links = std::to_string(is_dir ? (subdirs_count + 2) : 1);
+    std::string sizeStr = is_dir ? "4.0K" : FormatSize(size);
+    
+    char meta[128];
+    snprintf(meta, sizeof(meta), "%s %2s louie louie %5s %s ", perms.c_str(), links.c_str(), sizeStr.c_str(), dateStr.c_str());
+    
+    std::vector<LogSegment> segments;
+    segments.push_back({ meta, ImVec4(0.7f, 0.7f, 0.7f, 1.0f) });
+    
+    ImVec4 nameColor = ImVec4(0.9f, 0.9f, 0.9f, 1.0f);
+    std::string dispName = name;
+    if (is_dir) {
+        nameColor = ImVec4(0.20f, 0.60f, 0.86f, 1.00f); // Folder blue
+    } else if (name.size() > 3 && name.substr(name.size() - 3) == ".sh") {
+        nameColor = ImVec4(0.18f, 0.80f, 0.44f, 1.00f); // Executable green
+    } else if (name.size() > 4 && name.substr(name.size() - 4) == ".txt") {
+        nameColor = ImVec4(0.90f, 0.90f, 0.90f, 1.00f); // Text file white
+    }
+    
+    segments.push_back({ dispName, nameColor });
+    AddLog(segments);
+}
+
+// Prompt logging helper
+void AddLogPrompt(const std::string& path, const std::string& command) {
+    std::vector<LogSegment> segments;
+    segments.push_back({ "louie@lhcoyle4-core", ImVec4(0.18f, 0.80f, 0.44f, 1.00f) });
+    segments.push_back({ ":", ImVec4(0.90f, 0.90f, 0.90f, 1.00f) });
+    segments.push_back({ path, ImVec4(0.20f, 0.60f, 0.86f, 1.00f) });
+    segments.push_back({ "$ ", ImVec4(0.90f, 0.90f, 0.90f, 1.00f) });
+    segments.push_back({ command, ImVec4(0.95f, 0.95f, 0.95f, 1.00f) });
+    AddLog(segments);
 }
 
 // Redirect URL using JS
@@ -786,21 +885,58 @@ void ExecuteCommand(const std::string& cmdLine) {
     else if (lowerCmd == "ls") {
         std::string targetPath = "";
         if (args.size() > 1) {
-            targetPath = args[1];
+            // Ignore flag arguments (like -lah or -l) and check for a target path
+            if (args[1][0] == '-') {
+                if (args.size() > 2) {
+                    targetPath = args[2];
+                }
+            } else {
+                targetPath = args[1];
+            }
         }
         std::vector<std::string> dummyParts;
         FSNode* node = ResolvePath(targetPath, dummyParts);
         if (!node) {
             AddLog("ls: cannot access '" + targetPath + "': No such file or directory", ImVec4(1.0f, 0.3f, 0.3f, 1.0f));
         } else if (!node->is_dir) {
-            AddLog(node->name, ImVec4(0.0f, 1.0f, 0.3f, 1.0f));
+            std::string dateStr = GetCurrentDateString();
+            AddLogLSEntry(node->name, false, node->content.size(), 0, dateStr);
         } else {
+            // Find parent node for ..
+            std::vector<std::string> parentParts = dummyParts;
+            if (!parentParts.empty()) {
+                parentParts.pop_back();
+            }
+            FSNode* parentNode = FindNodeFromParts(parentParts);
+
+            // Calculate total blocks (4KB blocks)
+            size_t totalBlocks = 0;
+            totalBlocks += 8; // . and .. (4K each)
             for (const auto& child : node->children) {
                 if (child.is_dir) {
-                    AddLog(child.name + "/", ImVec4(0.0f, 0.7f, 1.0f, 1.0f)); // Folder in blue/cyan
+                    totalBlocks += 4;
                 } else {
-                    AddLog(child.name, ImVec4(0.0f, 1.0f, 0.3f, 1.0f)); // File in green
+                    totalBlocks += ((child.content.size() + 1023) / 1024) * 4;
                 }
+            }
+            AddLog("total " + std::to_string(totalBlocks) + "K");
+
+            std::string dateStr = GetCurrentDateString();
+
+            // . entry
+            AddLogLSEntry(".", true, 4096, CountSubdirs(*node), dateStr);
+
+            // .. entry
+            if (parentNode) {
+                AddLogLSEntry("..", true, 4096, CountSubdirs(*parentNode), dateStr);
+            } else {
+                AddLogLSEntry("..", true, 4096, CountSubdirs(g_FSRoot), dateStr);
+            }
+
+            // Directory children
+            for (const auto& child : node->children) {
+                size_t subdirs = child.is_dir ? CountSubdirs(child) : 0;
+                AddLogLSEntry(child.name, child.is_dir, child.content.size(), subdirs, dateStr);
             }
         }
     }
@@ -910,6 +1046,11 @@ void ExecuteCommand(const std::string& cmdLine) {
     }
     else {
         AddLog("Command not recognized: '" + cmd + "'. Type 'help' for available options.", ImVec4(1.0f, 0.2f, 0.2f, 1.0f));
+    }
+
+    // Add clean separation spacing after command outputs (except screen control commands)
+    if (lowerCmd != "clear" && lowerCmd != "cls" && lowerCmd != "matrix") {
+        AddLog("");
     }
 }
 
@@ -1545,13 +1686,29 @@ int main(int, char**)
                 
                 ImGui::BeginChild("ScrollingRegion", ImVec2(0, 0), false, ImGuiWindowFlags_HorizontalScrollbar);
                 
-                ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(4, 1));
+                ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(4, 5));
                 for (const auto& item : g_ConsoleLog) {
-                    ImGui::TextColored(item.color, "%s", item.text.c_str());
+                    if (item.segments.empty()) {
+                        ImGui::TextColored(item.color, "%s", item.text.c_str());
+                    } else {
+                        for (size_t s = 0; s < item.segments.size(); ++s) {
+                            ImGui::TextColored(item.segments[s].color, "%s", item.segments[s].text.c_str());
+                            if (s + 1 < item.segments.size()) {
+                                ImGui::SameLine(0, 0);
+                            }
+                        }
+                    }
                 }
                 
-                // Inline command input prompt
-                ImGui::TextColored(ImVec4(0.0f, 1.0f, 0.3f, 1.0f), "louie@lhcoyle4-core:%s$ ", GetCurrentPathString().c_str());
+                // Inline command input prompt with separate color-coded segments
+                ImGui::TextColored(ImVec4(0.18f, 0.80f, 0.44f, 1.00f), "louie@lhcoyle4-core");
+                ImGui::SameLine(0, 0);
+                ImGui::TextColored(ImVec4(0.90f, 0.90f, 0.90f, 1.00f), ":");
+                ImGui::SameLine(0, 0);
+                std::string pathStr = GetCurrentPathString();
+                ImGui::TextColored(ImVec4(0.20f, 0.60f, 0.86f, 1.00f), "%s", pathStr.c_str());
+                ImGui::SameLine(0, 0);
+                ImGui::TextColored(ImVec4(0.90f, 0.90f, 0.90f, 1.00f), "$ ");
                 ImGui::SameLine();
                 
                 ImGuiInputTextFlags inputFlags = ImGuiInputTextFlags_EnterReturnsTrue | ImGuiInputTextFlags_CallbackHistory;
@@ -1559,7 +1716,12 @@ int main(int, char**)
                 ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0, 0, 0, 0));
                 ImGui::PushStyleColor(ImGuiCol_FrameBgHovered, ImVec4(0, 0, 0, 0));
                 ImGui::PushStyleColor(ImGuiCol_FrameBgActive, ImVec4(0, 0, 0, 0));
+                ImGui::PushStyleColor(ImGuiCol_Border, ImVec4(0, 0, 0, 0));
+                ImGui::PushStyleColor(ImGuiCol_BorderShadow, ImVec4(0, 0, 0, 0));
+                ImGui::PushStyleColor(ImGuiCol_NavHighlight, ImVec4(0, 0, 0, 0));
+                
                 ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(0, 0));
+                ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 0.0f);
                 ImGui::PushItemWidth(-FLT_MIN);
                 
                 if (g_FocusTerminalInput) {
@@ -1570,9 +1732,8 @@ int main(int, char**)
                 if (ImGui::InputText("##InlineInput", g_InputBuf, IM_ARRAYSIZE(g_InputBuf), inputFlags, &ConsoleInputCallback)) {
                     std::string inputStr(g_InputBuf);
                     
-                    // Echo the prompt and typed command to terminal log
-                    std::string promptLine = "louie@lhcoyle4-core:" + GetCurrentPathString() + "$ " + inputStr;
-                    AddLog(promptLine, ImVec4(0.0f, 1.0f, 0.3f, 1.0f));
+                    // Echo the prompt and typed command to terminal log with full color-coding
+                    AddLogPrompt(GetCurrentPathString(), inputStr);
                     
                     if (!inputStr.empty()) {
                         ExecuteCommand(inputStr);
@@ -1584,8 +1745,8 @@ int main(int, char**)
                 }
                 
                 ImGui::PopItemWidth();
-                ImGui::PopStyleVar();
-                ImGui::PopStyleColor(3);
+                ImGui::PopStyleVar(2);
+                ImGui::PopStyleColor(6);
                 
                 if (g_TerminalScrollToBottom) {
                     ImGui::SetScrollHereY(1.0f);
