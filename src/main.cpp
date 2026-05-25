@@ -11,6 +11,8 @@
 #include <algorithm>
 #include <chrono>
 #include <sstream>
+#include "map_data.h"
+
 
 #ifdef __EMSCRIPTEN__
 #include <emscripten.h>
@@ -118,7 +120,9 @@ std::vector<MapCity> g_MapCities;
 float g_MapScale = 8.0f;
 ImVec2 g_MapOffset = ImVec2(0.0f, 0.0f);
 bool g_ShowBoundary = true;
+bool g_ShowStates = true;
 bool g_ShowLakes = true;
+bool g_ShowHighways = true;
 bool g_ShowCities = true;
 bool g_ShowContours = true;
 bool g_ShowGrid = true;
@@ -750,7 +754,9 @@ int main(int, char**)
             ImGui::TextColored(ImVec4(1.0f, 0.8f, 0.0f, 1.0f), "USGS Map Layer Controls");
             ImGui::Separator();
             ImGui::Checkbox("Show National Boundary", &g_ShowBoundary);
+            ImGui::Checkbox("Show State Borders", &g_ShowStates);
             ImGui::Checkbox("Show Hydrography (Lakes & Rivers)", &g_ShowLakes);
+            ImGui::Checkbox("Show Roads (Interstates)", &g_ShowHighways);
             ImGui::Checkbox("Show USGS Telemetry Grid", &g_ShowGrid);
             ImGui::Checkbox("Show USGS Stations (Cities)", &g_ShowCities);
             ImGui::Checkbox("Show Topographic Contours", &g_ShowContours);
@@ -823,14 +829,14 @@ int main(int, char**)
                 ImVec2 mousePos = io.MousePos;
                 
                 ImVec2 mapMouse = ImVec2((mousePos.x - canvasCenter.x - g_MapOffset.x) / g_MapScale, 
-                                         (mousePos.y - canvasCenter.y - g_MapOffset.y) / g_MapScale);
+                                         (mousePos.y - canvasCenter.y - g_MapOffset.y) / (g_MapScale * 1.35f));
                 
                 g_MapScale *= zoomFactor;
                 if (g_MapScale < 2.0f) g_MapScale = 2.0f;
                 if (g_MapScale > 120.0f) g_MapScale = 120.0f;
                 
                 g_MapOffset.x = mousePos.x - canvasCenter.x - mapMouse.x * g_MapScale;
-                g_MapOffset.y = mousePos.y - canvasCenter.y - mapMouse.y * g_MapScale;
+                g_MapOffset.y = mousePos.y - canvasCenter.y - mapMouse.y * g_MapScale * 1.35f;
             }
 
             // Push clipping rect so map rendering stays strictly within canvas bounds
@@ -862,11 +868,12 @@ int main(int, char**)
                 }
             }
 
-            // Draw topographic contours (Appalachians and Rockies lines)
+            // Draw topographic contours (High-resolution Appalachians, Rockies, Cascades, Sierras)
             if (g_ShowContours) {
-                DrawMapLine(Appalachian_Lon, Appalachian_Lat, Appalachian_Count, IM_COL32(0, 160, 0, 80), 1.5f, false, canvasCenter);
-                DrawMapLine(Rockies_Lon_1, Rockies_Lat_1, Rockies_Count_1, IM_COL32(0, 160, 0, 80), 1.5f, false, canvasCenter);
-                DrawMapLine(Rockies_Lon_2, Rockies_Lat_2, Rockies_Count_2, IM_COL32(0, 160, 0, 80), 1.5f, false, canvasCenter);
+                for (int i = 0; i < US_Contours_Count; ++i) {
+                    const auto& ct = US_Contours[i];
+                    DrawMapLine(&US_Contours_Lon[ct.start_index], &US_Contours_Lat[ct.start_index], ct.count, IM_COL32(0, 120, 0, 60), 1.0f, false, canvasCenter);
+                }
                 
                 // Draw text descriptors near ridges
                 ImVec2 appCenter = ProjectLonLat(-77.0f, 40.0f, canvasCenter, g_MapScale, g_MapOffset);
@@ -882,9 +889,14 @@ int main(int, char**)
                 DrawMapLine(Lake_Michigan_Huron_Lon, Lake_Michigan_Huron_Lat, Lake_Michigan_Huron_Count, IM_COL32(0, 120, 150, 180), 1.5f, true, canvasCenter);
                 DrawMapLine(Lake_Erie_Ontario_Lon, Lake_Erie_Ontario_Lat, Lake_Erie_Ontario_Count, IM_COL32(0, 120, 150, 180), 1.5f, true, canvasCenter);
                 
-                // Draw major rivers
-                DrawMapLine(Mississippi_Lon, Mississippi_Lat, Mississippi_Count, IM_COL32(0, 120, 150, 150), 1.5f, false, canvasCenter);
-                DrawMapLine(Colorado_Lon, Colorado_Lat, Colorado_Count, IM_COL32(0, 120, 150, 150), 1.2f, false, canvasCenter);
+                // Draw high-resolution major rivers
+                for (int i = 0; i < US_Rivers_Count; ++i) {
+                    const auto& river = US_Rivers[i];
+                    for (int p = 0; p < river.part_count; ++p) {
+                        const auto& part = US_Rivers_Parts[river.part_start + p];
+                        DrawMapLine(&US_Rivers_Lon[part.start_index], &US_Rivers_Lat[part.start_index], part.count, IM_COL32(0, 120, 150, 130), 1.3f, false, canvasCenter);
+                    }
+                }
 
                 // River/Lake text labels
                 ImVec2 supCenter = ProjectLonLat(-88.5f, 47.5f, canvasCenter, g_MapScale, g_MapOffset);
@@ -892,6 +904,25 @@ int main(int, char**)
 
                 ImVec2 missCenter = ProjectLonLat(-90.5f, 35.1f, canvasCenter, g_MapScale, g_MapOffset);
                 drawList->AddText(missCenter, IM_COL32(0, 140, 170, 120), "MISSISSIPPI R.");
+            }
+
+            // Draw state borders
+            if (g_ShowStates) {
+                for (int i = 0; i < US_States_Count; ++i) {
+                    const auto& state = US_States[i];
+                    for (int p = 0; p < state.part_count; ++p) {
+                        const auto& part = US_States_Parts[state.part_start + p];
+                        DrawMapLine(&US_States_Lon[part.start_index], &US_States_Lat[part.start_index], part.count, IM_COL32(0, 150, 0, 75), 1.0f, true, canvasCenter);
+                    }
+                }
+            }
+
+            // Draw roads (Interstate Highways)
+            if (g_ShowHighways) {
+                for (int i = 0; i < US_Highways_Count; ++i) {
+                    const auto& hw = US_Highways[i];
+                    DrawMapLine(&US_Highways_Lon[hw.start_index], &US_Highways_Lat[hw.start_index], hw.count, IM_COL32(0, 200, 50, 95), 1.2f, false, canvasCenter);
+                }
             }
 
             // Draw national borders
