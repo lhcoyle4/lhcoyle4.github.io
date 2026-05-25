@@ -74,6 +74,14 @@ std::vector<ImVec2> g_RadarPins;
 std::vector<float> g_CpuHistory;
 std::vector<float> g_RamHistory;
 std::vector<float> g_NetworkHistory;
+// Smooth displayed values (lerped every frame toward the latest target)
+float g_CpuSmooth  = 20.0f;
+float g_RamSmooth  = 45.0f;
+float g_NetSmooth  = 5.0f;
+// Target values set once per sample interval
+float g_CpuTarget  = 20.0f;
+float g_RamTarget  = 45.0f;
+float g_NetTarget  = 5.0f;
 auto g_StartTime = std::chrono::steady_clock::now();
 bool g_MatrixMode = false;
 int g_MatrixTimer = 0;
@@ -1965,23 +1973,53 @@ int ConsoleInputCallback(ImGuiInputTextCallbackData* data) {
     return 0;
 }
 
-// Setup plots
+// Update history plots — sample a new value every SAMPLE_INTERVAL seconds.
+// Display values snap immediately to the new target; no per-frame lerp so
+// bars stay perfectly still between updates.
 void UpdateHistoryPlots() {
-    static float timer = 0.0f;
-    timer += 0.03f;
-    
-    // Push new simulated values
-    float cpu = 15.0f + 10.0f * sinf(timer * 0.5f) + (rand() % 500) / 100.0f;
-    float ram = 45.3f + 1.2f * sinf(timer * 0.1f) + (rand() % 100) / 100.0f;
-    float net = 5.0f + 25.0f * (sinf(timer) > 0.8f ? sinf(timer) * 3.0f : 0.2f) + (rand() % 200) / 100.0f;
+    static double s_SimTimer       = 0.0;
+    static double s_LastSampleTime = -1.0; // -1 = not yet initialised
+    constexpr double SAMPLE_INTERVAL = 5.0; // seconds between new data points
 
-    g_CpuHistory.push_back(cpu);
-    g_RamHistory.push_back(ram);
-    g_NetworkHistory.push_back(net);
+    double now = ImGui::GetTime();
 
-    if (g_CpuHistory.size() > 100) g_CpuHistory.erase(g_CpuHistory.begin());
-    if (g_RamHistory.size() > 100) g_RamHistory.erase(g_RamHistory.begin());
-    if (g_NetworkHistory.size() > 100) g_NetworkHistory.erase(g_NetworkHistory.begin());
+    // On the very first call, align the sample clock to now so we don't
+    // immediately fire a sample (which would cause a jump from the flat init values).
+    if (s_LastSampleTime < 0.0) {
+        s_LastSampleTime = now;
+        // Seed display values so bars start settled.
+        g_CpuSmooth = g_CpuTarget = 20.0f;
+        g_RamSmooth = g_RamTarget = 45.0f;
+        g_NetSmooth = g_NetTarget =  5.0f;
+    }
+
+    // ---- Sample new values once per interval, snap display immediately ----
+    if (now - s_LastSampleTime >= SAMPLE_INTERVAL) {
+        s_LastSampleTime += SAMPLE_INTERVAL; // fixed-step to avoid drift
+        s_SimTimer       += SAMPLE_INTERVAL;
+
+        float t = (float)s_SimTimer;
+        // Pure sine — targets shift gradually, never jump
+        g_CpuTarget = 18.0f + 12.0f * sinf(t * 0.4f);
+        g_RamTarget = 45.0f +  3.0f * sinf(t * 0.15f);
+        g_NetTarget =  5.0f + 20.0f * (sinf(t * 0.7f) > 0.6f
+                                        ? sinf(t * 0.7f) * 2.5f : 0.3f);
+
+        // Snap display values — bars don't move at all between updates
+        g_CpuSmooth = g_CpuTarget;
+        g_RamSmooth = g_RamTarget;
+        g_NetSmooth = g_NetTarget;
+
+        // Commit the new value as a history point
+        g_CpuHistory.push_back(g_CpuSmooth);
+        g_RamHistory.push_back(g_RamSmooth);
+        g_NetworkHistory.push_back(g_NetSmooth);
+
+        if (g_CpuHistory.size()     > 100) g_CpuHistory.erase(g_CpuHistory.begin());
+        if (g_RamHistory.size()     > 100) g_RamHistory.erase(g_RamHistory.begin());
+        if (g_NetworkHistory.size() > 100) g_NetworkHistory.erase(g_NetworkHistory.begin());
+    }
+    // No per-frame lerp — display values are only written on sample ticks above.
 }
 
 struct MatchRange {
@@ -2436,18 +2474,29 @@ int main(int, char**)
         ImGui::TextColored(ImVec4(1.0f, 0.8f, 0.0f, 1.0f), "SYS DIAGNOSTICS");
         ImGui::Separator();
         
-        // Progress Bars for system parameters
-        float currentCpu = g_CpuHistory.back();
-        float currentRam = g_RamHistory.back();
+        // Progress Bars for system parameters — color coded:
+        //   green  < 40%  (low)
+        //   yellow 40-70% (medium)
+        //   red    > 70%  (high)
+        auto DiagBarColor = [](float pct) -> ImVec4 {
+            if (pct < 40.0f) return ImVec4(0.10f, 0.85f, 0.25f, 1.0f); // green
+            if (pct < 70.0f) return ImVec4(0.95f, 0.78f, 0.05f, 1.0f); // yellow
+            return             ImVec4(0.90f, 0.18f, 0.10f, 1.0f);       // red
+        };
+
         ImGui::Text("CPU Core Usage:");
-        ImGui::ProgressBar(currentCpu / 100.0f, ImVec2(-FLT_MIN, 15.0f), "");
+        ImGui::PushStyleColor(ImGuiCol_PlotHistogram, DiagBarColor(g_CpuSmooth));
+        ImGui::ProgressBar(g_CpuSmooth / 100.0f, ImVec2(-FLT_MIN, 15.0f), "");
+        ImGui::PopStyleColor();
         ImGui::SameLine(0, 4);
-        ImGui::Text("%.1f%%", currentCpu);
+        ImGui::Text("%.1f%%", g_CpuSmooth);
 
         ImGui::Text("Heap Memory Usage:");
-        ImGui::ProgressBar(currentRam / 100.0f, ImVec2(-FLT_MIN, 15.0f), "");
+        ImGui::PushStyleColor(ImGuiCol_PlotHistogram, DiagBarColor(g_RamSmooth));
+        ImGui::ProgressBar(g_RamSmooth / 100.0f, ImVec2(-FLT_MIN, 15.0f), "");
+        ImGui::PopStyleColor();
         ImGui::SameLine(0, 4);
-        ImGui::Text("%.1f%%", currentRam);
+        ImGui::Text("%.1f%%", g_RamSmooth);
         
         ImGui::Spacing();
         ImGui::TextColored(ImVec4(1.0f, 0.8f, 0.0f, 1.0f), "NAV COMMAND CENTER");
@@ -4100,9 +4149,4 @@ int main(int, char**)
     ImGui_ImplSDL2_Shutdown();
     ImGui::DestroyContext();
 
-    SDL_GL_DeleteContext(gl_context);
-    SDL_DestroyWindow(window);
-    SDL_Quit();
-
-    return 0;
-}
+  
