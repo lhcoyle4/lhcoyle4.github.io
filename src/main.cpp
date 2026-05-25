@@ -177,6 +177,9 @@ float g_NetTarget  = 5.0f;
 auto g_StartTime = std::chrono::steady_clock::now();
 bool g_MatrixMode = false;
 int g_MatrixTimer = 0;
+static bool g_SidebarCollapsed  = false;  // hamburger toggle
+static bool g_GisLayersOpen     = true;   // floating Layers panel
+static bool g_GisProjectsOpen   = true;   // floating Projects panel
 
 // MOTD quote pool (subset of the desktop MOTD app's DEV_TIPS)
 static const char* g_DevTips[] = {
@@ -2559,6 +2562,10 @@ int main(int, char**)
 
         // Top Menu Bar
         if (ImGui::BeginMenuBar()) {
+            // Hamburger sidebar toggle
+            if (ImGui::Button(g_SidebarCollapsed ? "[>]" : "[=]", ImVec2(32, 0)))
+                g_SidebarCollapsed = !g_SidebarCollapsed;
+            ImGui::SameLine(0, 6);
             ImGui::Text("[LHCOYLE4 SYSTEMS CORE] | ");
             ImGui::TextDisabled("STATUS: NOMINAL | ");
             
@@ -2579,11 +2586,14 @@ int main(int, char**)
         }
 
         // Layout: Left Panel (Navigation & Stats) and Right Panel (Workspace)
-        float leftPanelWidth = 260.0f;
-        float rightPanelWidth = io.DisplaySize.x - leftPanelWidth - 25.0f;
+        float leftPanelWidth  = g_SidebarCollapsed ? 0.0f : 260.0f;
+        float rightPanelWidth = g_SidebarCollapsed
+            ? io.DisplaySize.x - 8.0f
+            : io.DisplaySize.x - leftPanelWidth - 25.0f;
         if (rightPanelWidth < 300.0f) rightPanelWidth = 300.0f; // bounds checks
 
-        // Left Panel (System Info & Menu Selection)
+        // Left Panel (System Info & Menu Selection) — hidden when sidebar collapsed
+        if (!g_SidebarCollapsed) {
         ImGui::BeginChild("LeftPanel", ImVec2(leftPanelWidth, 0), true);
 
         // ---- Mini MOTD ----
@@ -2652,8 +2662,9 @@ int main(int, char**)
         ImGui::TextWrapped("Bio: BSCS + GIS Master's Cert. Portland, ME. Aspiring drone pilot, Python automations, C/C++ programmer.");
 
         ImGui::EndChild();
+        } // end if (!g_SidebarCollapsed)
 
-        ImGui::SameLine();
+        if (!g_SidebarCollapsed) ImGui::SameLine();
 
         // Right Panel (Workspace)
         ImGui::BeginChild("RightPanel", ImVec2(rightPanelWidth, 0), true);
@@ -3203,160 +3214,7 @@ int main(int, char**)
             // ==========================================
             // TAB 2: GIS CARTOGRAPHY
             // ==========================================
-            ImGui::TextColored(ImVec4(0.0f, 1.0f, 1.0f, 1.0f), "SPATIAL INTELLIGENCE & SATELLITE CARTOGRAPHY");
-            ImGui::Separator();
-
-            ImGui::BeginChild("GisInfo", ImVec2(340, 0), true);
-            
-            ImGui::TextColored(ImVec4(1.0f, 0.8f, 0.0f, 1.0f), "Academic & Professional GIS Projects");
-            ImGui::Separator();
-
-            if (ImGui::CollapsingHeader("1. Chernobyl Forest Rewilding Study", ImGuiTreeNodeFlags_DefaultOpen)) {
-                ImGui::TextWrapped("Analyzed land-use regression and NDVI vegetation changes using Landsat multispectral imagery. Built classification models mapping habitat suitability during rewilding phases.");
-            }
-            if (ImGui::CollapsingHeader("2. Portland Storm Inundation Grid", ImGuiTreeNodeFlags_DefaultOpen)) {
-                ImGui::TextWrapped("Simulated coastal flooding hazards by processing dense USGS LiDAR terrain elevation points, outputting localized hydraulic drainage maps.");
-            }
-            if (ImGui::CollapsingHeader("3. Rayne's Neck Drone Mapping", ImGuiTreeNodeFlags_DefaultOpen)) {
-                ImGui::TextWrapped("Captured high-accuracy aerial orthomosaics and structural elevations of seawalls using RTK GPS flight telemetry and photogrammetry.");
-            }
-            
-            ImGui::Spacing();
-            ImGui::TextColored(ImVec4(1.0f, 0.8f, 0.0f, 1.0f), "USGS Map Layer Controls");
-            ImGui::Separator();
-            bool prevShowLabels = g_ShowLabels;
-            if (ImGui::Checkbox("Show Map Labels", &g_ShowLabels)) {
-                if (g_ShowLabels != prevShowLabels) {
-                    g_ShowLabelsWorld = g_ShowLabels;
-                    g_ShowLabelsStates = g_ShowLabels;
-                    g_ShowLabelsHighways = g_ShowLabels;
-                    g_ShowLabelsUSHighways = g_ShowLabels;
-                    g_ShowLabelsRailways = g_ShowLabels;
-                    g_ShowLabelsPowerPlants = g_ShowLabels;
-                    g_ShowLabelsSubstations = g_ShowLabels;
-                    g_ShowLabelsPipelines = g_ShowLabels;
-                    g_ShowLabelsEnergyCorridors = g_ShowLabels;
-                    g_ShowLabelsLakes = g_ShowLabels;
-                    g_ShowLabelsCities = g_ShowLabels;
-                    g_ShowLabelsContours = g_ShowLabels;
-                }
-            }
-            ImGui::Checkbox("Tile Basemap (Carto Dark)", &g_ShowBasemap);
-            ImGui::Checkbox("Show National Boundary", &g_ShowBoundary);
-
-            ImGui::Checkbox("Show World Countries", &g_ShowWorld);
-            if (g_ShowWorld) {
-                ImGui::Indent(15.0f);
-                ImGui::Checkbox("World Labels", &g_ShowLabelsWorld);
-                ImGui::Unindent(15.0f);
-            }
-            
-            ImGui::Checkbox("Show State Borders", &g_ShowStates);
-            if (g_ShowStates) {
-                ImGui::Indent(15.0f);
-                ImGui::Checkbox("State Labels", &g_ShowLabelsStates);
-                ImGui::Unindent(15.0f);
-            }
-            
-            ImGui::Checkbox("Show Hydrography (Lakes & Rivers)", &g_ShowLakes);
-            if (g_ShowLakes) {
-                ImGui::Indent(15.0f);
-                ImGui::Checkbox("Hydrography Labels", &g_ShowLabelsLakes);
-                ImGui::Unindent(15.0f);
-            }
-            
-            ImGui::Checkbox("Show Roads (Interstates)", &g_ShowHighways);
-            if (g_ShowHighways) {
-                ImGui::Indent(15.0f);
-                ImGui::Checkbox("Interstate Labels", &g_ShowLabelsHighways);
-                ImGui::Unindent(15.0f);
-            }
-            
-            ImGui::Checkbox("Show Secondary Highways", &g_ShowUSHighways);
-            if (g_ShowUSHighways) {
-                ImGui::Indent(15.0f);
-                ImGui::Checkbox("Secondary Hwy Labels", &g_ShowLabelsUSHighways);
-                ImGui::Unindent(15.0f);
-            }
-            
-            ImGui::Checkbox("Show Railroads", &g_ShowRailways);
-            if (g_ShowRailways) {
-                ImGui::Indent(15.0f);
-                ImGui::Checkbox("Railroad Labels", &g_ShowLabelsRailways);
-                ImGui::Unindent(15.0f);
-            }
-            
-            ImGui::Checkbox("Show Power Stations", &g_ShowPowerPlants);
-            if (g_ShowPowerPlants) {
-                ImGui::Indent(15.0f);
-                ImGui::Checkbox("Power Station Labels", &g_ShowLabelsPowerPlants);
-                ImGui::Unindent(15.0f);
-            }
-            
-            ImGui::Checkbox("Show Grid Substations", &g_ShowSubstations);
-            if (g_ShowSubstations) {
-                ImGui::Indent(15.0f);
-                ImGui::Checkbox("Substation Labels", &g_ShowLabelsSubstations);
-                ImGui::Unindent(15.0f);
-            }
-            
-            ImGui::Checkbox("Show Gas & Oil Pipelines", &g_ShowPipelines);
-            if (g_ShowPipelines) {
-                ImGui::Indent(15.0f);
-                ImGui::Checkbox("Pipeline Labels", &g_ShowLabelsPipelines);
-                ImGui::Unindent(15.0f);
-            }
-            
-            ImGui::Checkbox("Show HV Energy Corridors", &g_ShowEnergyCorridors);
-            if (g_ShowEnergyCorridors) {
-                ImGui::Indent(15.0f);
-                ImGui::Checkbox("Corridor Labels", &g_ShowLabelsEnergyCorridors);
-                ImGui::Unindent(15.0f);
-            }
-            
-            ImGui::Checkbox("Show USGS Telemetry Grid", &g_ShowGrid);
-            
-            ImGui::Checkbox("Show USGS Stations (Cities)", &g_ShowCities);
-            if (g_ShowCities) {
-                ImGui::Indent(15.0f);
-                ImGui::Checkbox("Station Labels", &g_ShowLabelsCities);
-                ImGui::Unindent(15.0f);
-            }
-            
-            ImGui::Checkbox("Show Topographic Contours", &g_ShowContours);
-            if (g_ShowContours) {
-                ImGui::Indent(15.0f);
-                ImGui::Checkbox("Contour Labels", &g_ShowLabelsContours);
-                ImGui::Unindent(15.0f);
-            }
-
-            g_ShowLabels = (g_ShowLabelsWorld || g_ShowLabelsStates || g_ShowLabelsHighways ||
-                            g_ShowLabelsUSHighways || g_ShowLabelsRailways || g_ShowLabelsPowerPlants ||
-                            g_ShowLabelsSubstations || g_ShowLabelsPipelines || g_ShowLabelsEnergyCorridors ||
-                            g_ShowLabelsLakes || g_ShowLabelsCities || g_ShowLabelsContours);
-
-            ImGui::Spacing();
-            ImGui::TextColored(ImVec4(1.0f, 0.8f, 0.0f, 1.0f), "Selected Station Telemetry");
-            ImGui::Separator();
-            if (g_SelectedCity >= 0 && g_SelectedCity < (int)g_MapCities.size()) {
-                const auto& city = g_MapCities[g_SelectedCity];
-                ImGui::TextColored(ImVec4(0.0f, 1.0f, 1.0f, 1.0f), "%s", city.name.c_str());
-                ImGui::Text("Coordinates: %.2f N, %.2f W", city.lat, -city.lon);
-                ImGui::TextWrapped("%s", city.desc.c_str());
-            } else {
-                ImGui::TextDisabled("No station selected. Click a station pin on the map to query telemetry.");
-            }
-
-            ImGui::Spacing();
-            ImGui::Separator();
-            if (ImGui::Button("View Full GIS Map Portfolio Repo", ImVec2(-FLT_MIN, 40.0f))) {
-                OpenGitHubLink("https://github.com/lhcoyle4/gis-portfolio");
-            }
-            ImGui::EndChild();
-
-            ImGui::SameLine();
-
-            // Interactive National Map Viewer panel
+            // Map fills all available workspace; Layers & Projects are floating overlays
             ImGui::BeginChild("GisMapViewer", ImVec2(0, 0), true, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
             
             ImDrawList* drawList = ImGui::GetWindowDrawList();
@@ -4231,6 +4089,123 @@ int main(int, char**)
             if (ImGui::Button("Reset", ImVec2(55, 30))) {
                 g_MapScale = 8.0f;
                 g_MapOffset = ImVec2(0.0f, 0.0f);
+            }
+
+            // ---- Re-open buttons for closed floating panels ----
+            {
+                float btnX = canvasPos.x + canvasSize.x - 10.0f;
+                float btnY = canvasPos.y + 12.0f;
+                if (!g_GisLayersOpen) {
+                    btnX -= 82.0f;
+                    ImGui::SetCursorScreenPos(ImVec2(btnX, btnY));
+                    if (ImGui::Button("[Layers]", ImVec2(80, 22))) g_GisLayersOpen = true;
+                }
+                if (!g_GisProjectsOpen) {
+                    btnX -= 90.0f;
+                    ImGui::SetCursorScreenPos(ImVec2(btnX, btnY));
+                    if (ImGui::Button("[Projects]", ImVec2(88, 22))) g_GisProjectsOpen = true;
+                }
+            }
+
+            // ---- Floating Layers Panel ----
+            if (g_GisLayersOpen) {
+                ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x - 310.0f, 55.0f), ImGuiCond_FirstUseEver);
+                ImGui::SetNextWindowSize(ImVec2(295, 530), ImGuiCond_FirstUseEver);
+                ImGui::PushStyleColor(ImGuiCol_WindowBg,       ImVec4(0.02f, 0.07f, 0.03f, 0.93f));
+                ImGui::PushStyleColor(ImGuiCol_TitleBg,        ImVec4(0.00f, 0.22f, 0.05f, 1.0f));
+                ImGui::PushStyleColor(ImGuiCol_TitleBgActive,  ImVec4(0.00f, 0.38f, 0.10f, 1.0f));
+                ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 4.0f);
+                ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 1.0f);
+                if (ImGui::Begin("USGS Map Layers##gislayers", &g_GisLayersOpen)) {
+                    bool prevShowLabels = g_ShowLabels;
+                    if (ImGui::Checkbox("Show Map Labels", &g_ShowLabels)) {
+                        if (g_ShowLabels != prevShowLabels) {
+                            g_ShowLabelsWorld = g_ShowLabels; g_ShowLabelsStates = g_ShowLabels;
+                            g_ShowLabelsHighways = g_ShowLabels; g_ShowLabelsUSHighways = g_ShowLabels;
+                            g_ShowLabelsRailways = g_ShowLabels; g_ShowLabelsPowerPlants = g_ShowLabels;
+                            g_ShowLabelsSubstations = g_ShowLabels; g_ShowLabelsPipelines = g_ShowLabels;
+                            g_ShowLabelsEnergyCorridors = g_ShowLabels; g_ShowLabelsLakes = g_ShowLabels;
+                            g_ShowLabelsCities = g_ShowLabels; g_ShowLabelsContours = g_ShowLabels;
+                        }
+                    }
+                    ImGui::Checkbox("Tile Basemap (Carto Dark)", &g_ShowBasemap);
+                    ImGui::Checkbox("Show National Boundary",    &g_ShowBoundary);
+                    ImGui::Checkbox("Show World Countries",      &g_ShowWorld);
+                    if (g_ShowWorld)   { ImGui::Indent(15.0f); ImGui::Checkbox("World Labels",       &g_ShowLabelsWorld);      ImGui::Unindent(15.0f); }
+                    ImGui::Checkbox("Show State Borders",        &g_ShowStates);
+                    if (g_ShowStates)  { ImGui::Indent(15.0f); ImGui::Checkbox("State Labels",       &g_ShowLabelsStates);     ImGui::Unindent(15.0f); }
+                    ImGui::Checkbox("Show Hydrography",          &g_ShowLakes);
+                    if (g_ShowLakes)   { ImGui::Indent(15.0f); ImGui::Checkbox("Hydro Labels",       &g_ShowLabelsLakes);      ImGui::Unindent(15.0f); }
+                    ImGui::Checkbox("Show Roads (Interstates)",  &g_ShowHighways);
+                    if (g_ShowHighways){ ImGui::Indent(15.0f); ImGui::Checkbox("Interstate Labels",  &g_ShowLabelsHighways);   ImGui::Unindent(15.0f); }
+                    ImGui::Checkbox("Show Secondary Highways",   &g_ShowUSHighways);
+                    if (g_ShowUSHighways){ ImGui::Indent(15.0f); ImGui::Checkbox("Secondary Labels", &g_ShowLabelsUSHighways); ImGui::Unindent(15.0f); }
+                    ImGui::Checkbox("Show Railroads",            &g_ShowRailways);
+                    if (g_ShowRailways){ ImGui::Indent(15.0f); ImGui::Checkbox("Railroad Labels",    &g_ShowLabelsRailways);   ImGui::Unindent(15.0f); }
+                    ImGui::Checkbox("Show Power Stations",       &g_ShowPowerPlants);
+                    if (g_ShowPowerPlants){ ImGui::Indent(15.0f); ImGui::Checkbox("Power Labels",    &g_ShowLabelsPowerPlants);ImGui::Unindent(15.0f); }
+                    ImGui::Checkbox("Show Grid Substations",     &g_ShowSubstations);
+                    if (g_ShowSubstations){ ImGui::Indent(15.0f); ImGui::Checkbox("Subst. Labels",  &g_ShowLabelsSubstations);ImGui::Unindent(15.0f); }
+                    ImGui::Checkbox("Show Gas & Oil Pipelines",  &g_ShowPipelines);
+                    if (g_ShowPipelines){ ImGui::Indent(15.0f); ImGui::Checkbox("Pipeline Labels",   &g_ShowLabelsPipelines);  ImGui::Unindent(15.0f); }
+                    ImGui::Checkbox("Show HV Energy Corridors",  &g_ShowEnergyCorridors);
+                    if (g_ShowEnergyCorridors){ ImGui::Indent(15.0f); ImGui::Checkbox("Corridor Labels",&g_ShowLabelsEnergyCorridors); ImGui::Unindent(15.0f); }
+                    ImGui::Checkbox("Show USGS Telemetry Grid",  &g_ShowGrid);
+                    ImGui::Checkbox("Show USGS Stations",        &g_ShowCities);
+                    if (g_ShowCities)  { ImGui::Indent(15.0f); ImGui::Checkbox("Station Labels",     &g_ShowLabelsCities);     ImGui::Unindent(15.0f); }
+                    ImGui::Checkbox("Show Topographic Contours", &g_ShowContours);
+                    if (g_ShowContours){ ImGui::Indent(15.0f); ImGui::Checkbox("Contour Labels",     &g_ShowLabelsContours);   ImGui::Unindent(15.0f); }
+                    g_ShowLabels = (g_ShowLabelsWorld || g_ShowLabelsStates || g_ShowLabelsHighways ||
+                                    g_ShowLabelsUSHighways || g_ShowLabelsRailways || g_ShowLabelsPowerPlants ||
+                                    g_ShowLabelsSubstations || g_ShowLabelsPipelines || g_ShowLabelsEnergyCorridors ||
+                                    g_ShowLabelsLakes || g_ShowLabelsCities || g_ShowLabelsContours);
+                    ImGui::Separator();
+                    ImGui::TextColored(ImVec4(1.0f, 0.8f, 0.0f, 1.0f), "Selected Station Telemetry");
+                    ImGui::Separator();
+                    if (g_SelectedCity >= 0 && g_SelectedCity < (int)g_MapCities.size()) {
+                        const auto& city = g_MapCities[g_SelectedCity];
+                        ImGui::TextColored(ImVec4(0.0f, 1.0f, 1.0f, 1.0f), "%s", city.name.c_str());
+                        ImGui::Text("Coordinates: %.2f N, %.2f W", city.lat, -city.lon);
+                        ImGui::TextWrapped("%s", city.desc.c_str());
+                    } else {
+                        ImGui::TextDisabled("No station selected. Click a pin on the map.");
+                    }
+                }
+                ImGui::End();
+                ImGui::PopStyleVar(2);
+                ImGui::PopStyleColor(3);
+            }
+
+            // ---- Floating Projects Panel ----
+            if (g_GisProjectsOpen) {
+                ImGui::SetNextWindowPos(ImVec2(270.0f, 55.0f), ImGuiCond_FirstUseEver);
+                ImGui::SetNextWindowSize(ImVec2(305, 270), ImGuiCond_FirstUseEver);
+                ImGui::PushStyleColor(ImGuiCol_WindowBg,       ImVec4(0.02f, 0.07f, 0.03f, 0.93f));
+                ImGui::PushStyleColor(ImGuiCol_TitleBg,        ImVec4(0.00f, 0.22f, 0.05f, 1.0f));
+                ImGui::PushStyleColor(ImGuiCol_TitleBgActive,  ImVec4(0.00f, 0.38f, 0.10f, 1.0f));
+                ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 4.0f);
+                ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 1.0f);
+                if (ImGui::Begin("GIS Projects##gisprojects", &g_GisProjectsOpen)) {
+                    ImGui::TextColored(ImVec4(1.0f, 0.8f, 0.0f, 1.0f), "Academic & Professional GIS Projects");
+                    ImGui::Separator();
+                    if (ImGui::CollapsingHeader("1. Chernobyl Forest Rewilding Study")) {
+                        ImGui::TextWrapped("Analyzed land-use regression and NDVI vegetation changes using Landsat multispectral imagery. Built classification models mapping habitat suitability during rewilding phases.");
+                    }
+                    if (ImGui::CollapsingHeader("2. Portland Storm Inundation Grid")) {
+                        ImGui::TextWrapped("Simulated coastal flooding hazards by processing dense USGS LiDAR terrain elevation points, outputting localized hydraulic drainage maps.");
+                    }
+                    if (ImGui::CollapsingHeader("3. Rayne's Neck Drone Mapping")) {
+                        ImGui::TextWrapped("Captured high-accuracy aerial orthomosaics and structural elevations of seawalls using RTK GPS flight telemetry and photogrammetry.");
+                    }
+                    ImGui::Spacing();
+                    ImGui::Separator();
+                    if (ImGui::Button("View GIS Portfolio Repo", ImVec2(-FLT_MIN, 32.0f))) {
+                        OpenGitHubLink("https://github.com/lhcoyle4/gis-portfolio");
+                    }
+                }
+                ImGui::End();
+                ImGui::PopStyleVar(2);
+                ImGui::PopStyleColor(3);
             }
 
             // Render Pinned Congested Area Menu
