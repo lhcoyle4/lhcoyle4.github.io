@@ -114,12 +114,28 @@ for feat in countries_data['features']:
                 
     if is_us:
         for ring in rings_list:
-            start_idx = len(us_border_lons)
-            for pt in ring:
-                us_border_lons.append(pt[0])
-                us_border_lats.append(pt[1])
-            count = len(us_border_lons) - start_idx
-            us_border_parts.append((start_idx, count))
+            is_coterminous = any(-126.0 <= pt[0] <= -65.0 and 24.0 <= pt[1] <= 50.0 for pt in ring)
+            if is_coterminous:
+                start_idx = len(us_border_lons)
+                for pt in ring:
+                    us_border_lons.append(pt[0])
+                    us_border_lats.append(pt[1])
+                count = len(us_border_lons) - start_idx
+                us_border_parts.append((start_idx, count))
+            else:
+                # Add Alaska/Hawaii/territories to world countries so they render as background
+                part_start = len(world_parts)
+                start_idx = len(world_lons)
+                for idx, pt in enumerate(ring):
+                    if idx % 2 == 0 or idx == len(ring) - 1:
+                        world_lons.append(pt[0])
+                        world_lats.append(pt[1])
+                count = len(world_lons) - start_idx
+                if count >= 3:
+                    world_parts.append((start_idx, count))
+                    part_count = len(world_parts) - part_start
+                    if part_count > 0:
+                        world_countries.append(("United States", part_start, part_count))
     else:
         part_start = len(world_parts)
         for ring in rings_list:
@@ -228,21 +244,40 @@ for feat in rivers_data['features']:
         if part_count > 0:
             rivers.append((name, part_start, part_count))
 
-# 5. Fetch US Power Stations
-print("Downloading US power stations GeoJSON...")
-url_pp = "https://raw.githubusercontent.com/bl166/USPowerPlantDataset/master/uspp_metadata.geojson"
+# 5. Fetch US Power Stations from WRI Global Database CSV
+print("Downloading complete US power stations from WRI CSV Database...")
+url_pp = "https://raw.githubusercontent.com/wri/global-power-plant-database/master/output_database/global_power_plant_database.csv"
 req_pp = urllib.request.Request(url_pp, headers={'User-Agent': 'Mozilla/5.0'})
 response_pp = urllib.request.urlopen(req_pp)
-pp_data = json.loads(response_pp.read().decode('utf-8'))
+lines = [line.decode('utf-8') for line in response_pp.readlines()]
+import csv
+reader = csv.DictReader(lines)
 
 power_plants = [] # (name, lon, lat, fuel_type, capacity_MW)
-for feat in pp_data['features']:
-    props = feat['properties']
-    name = props.get('plant_name', 'Unnamed Plant')
-    fuel = props.get('primary_fuel', 'UNKNOWN')
-    cap = float(props.get('nameplate_cap_MW', 0.0))
-    coords = feat['geometry']['coordinates']
-    power_plants.append((name, coords[0], coords[1], fuel, cap))
+for row in reader:
+    if row.get('country') == 'USA':
+        try:
+            cap = float(row.get('capacity_mw', 0.0) or 0.0)
+        except ValueError:
+            cap = 0.0
+        # Filter for major plants (>= 700 MW) to have a dense but high-performance dataset covering the entire nation
+        if cap >= 700.0:
+            name = row.get('name', 'Unnamed Plant')
+            fuel = row.get('primary_fuel', 'UNKNOWN')
+            
+            # Map fuel types to fit C++ backend color mapping
+            if fuel == 'Nuclear': fuel_code = 'NUC'
+            elif fuel == 'Hydro': fuel_code = 'HYC'
+            elif fuel == 'Coal': fuel_code = 'COL'
+            elif fuel in ('Gas', 'Oil'): fuel_code = 'GAS'
+            else: fuel_code = 'OTH'
+            
+            try:
+                lon = float(row.get('longitude', 0.0) or 0.0)
+                lat = float(row.get('latitude', 0.0) or 0.0)
+                power_plants.append((name, lon, lat, fuel_code, cap))
+            except ValueError:
+                pass
 
 # 6. Define Cities for Networking
 cities = {

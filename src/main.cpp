@@ -104,7 +104,7 @@ std::vector<MapCity> g_MapCities;
 float g_MapScale = 8.0f;
 ImVec2 g_MapOffset = ImVec2(0.0f, 0.0f);
 bool g_ShowBoundary = true;
-bool g_ShowWorld = false;
+bool g_ShowWorld = true;
 bool g_ShowStates = true;
 bool g_ShowLakes = true;
 bool g_ShowHighways = true;
@@ -118,6 +118,7 @@ bool g_ShowCities = true;
 bool g_ShowContours = true;
 bool g_ShowGrid = true;
 int g_SelectedCity = 0; // Default: Portland, ME
+bool g_ShowLabels = true;
 
 
 // Log function
@@ -744,6 +745,7 @@ int main(int, char**)
             ImGui::Spacing();
             ImGui::TextColored(ImVec4(1.0f, 0.8f, 0.0f, 1.0f), "USGS Map Layer Controls");
             ImGui::Separator();
+            ImGui::Checkbox("Show Map Labels", &g_ShowLabels);
             ImGui::Checkbox("Show National Boundary", &g_ShowBoundary);
             ImGui::Checkbox("Show World Countries", &g_ShowWorld);
             ImGui::Checkbox("Show State Borders", &g_ShowStates);
@@ -826,6 +828,24 @@ int main(int, char**)
                 }
             };
 
+            float fontScale = g_MapScale / 8.0f;
+            if (fontScale < 0.5f) fontScale = 0.5f;
+            if (fontScale > 2.0f) fontScale = 2.0f;
+
+            auto DrawScaledLabel = [&](ImVec2 pos, ImU32 color, const char* text, float minScaleToShow = 0.0f) {
+                if (!g_ShowLabels) return;
+                if (g_MapScale < minScaleToShow) return;
+                
+                // Viewport boundary check before rendering text
+                if (pos.x < canvasPos.x - 10.0f || pos.x > canvasPos.x + canvasSize.x + 10.0f ||
+                    pos.y < canvasPos.y - 10.0f || pos.y > canvasPos.y + canvasSize.y + 10.0f) {
+                    return;
+                }
+                
+                float size = ImGui::GetFontSize() * fontScale;
+                drawList->AddText(ImGui::GetFont(), size, pos, color, text);
+            };
+
             ImVec2 canvasCenter = ImVec2(canvasPos.x + canvasSize.x * 0.5f, canvasPos.y + canvasSize.y * 0.5f);
 
             // Bounding box for mouse input checks
@@ -890,9 +910,23 @@ int main(int, char**)
             if (g_ShowWorld) {
                 for (int i = 0; i < World_Countries_Count; ++i) {
                     const auto& country = World_Countries[i];
+                    float sumLon = 0.0f;
+                    float sumLat = 0.0f;
+                    int ptCount = 0;
                     for (int p = 0; p < country.part_count; ++p) {
                         const auto& part = World_Countries_Parts[country.part_start + p];
-                        DrawMapLine(&World_Countries_Lon[part.start_index], &World_Countries_Lat[part.start_index], part.count, IM_COL32(0, 100, 0, 35), 0.8f, true, canvasCenter);
+                        DrawMapLine(&World_Countries_Lon[part.start_index], &World_Countries_Lat[part.start_index], part.count, IM_COL32(0, 160, 20, 85), 0.8f, true, canvasCenter);
+                        for (int pt = 0; pt < part.count; ++pt) {
+                            sumLon += World_Countries_Lon[part.start_index + pt];
+                            sumLat += World_Countries_Lat[part.start_index + pt];
+                            ptCount++;
+                        }
+                    }
+                    if (ptCount > 0) {
+                        float avgLon = sumLon / ptCount;
+                        float avgLat = sumLat / ptCount;
+                        ImVec2 labelPos = ProjectLonLat(avgLon, avgLat, canvasCenter, g_MapScale, g_MapOffset);
+                        DrawScaledLabel(labelPos, IM_COL32(0, 200, 30, 150), country.name, 4.0f);
                     }
                 }
             }
@@ -906,10 +940,10 @@ int main(int, char**)
                 
                 // Draw text descriptors near ridges
                 ImVec2 appCenter = ProjectLonLat(-77.0f, 40.0f, canvasCenter, g_MapScale, g_MapOffset);
-                drawList->AddText(appCenter, IM_COL32(0, 180, 0, 90), "CONTOUR 1000m");
+                DrawScaledLabel(appCenter, IM_COL32(0, 180, 0, 90), "CONTOUR 1000m", 6.0f);
                 
                 ImVec2 rockCenter = ProjectLonLat(-110.0f, 42.0f, canvasCenter, g_MapScale, g_MapOffset);
-                drawList->AddText(rockCenter, IM_COL32(0, 180, 0, 90), "CONTOUR 3000m");
+                DrawScaledLabel(rockCenter, IM_COL32(0, 180, 0, 90), "CONTOUR 3000m", 6.0f);
             }
 
             // Draw hydrography lakes and rivers
@@ -934,19 +968,33 @@ int main(int, char**)
 
                 // River/Lake text labels
                 ImVec2 supCenter = ProjectLonLat(-88.5f, 47.5f, canvasCenter, g_MapScale, g_MapOffset);
-                drawList->AddText(supCenter, IM_COL32(0, 140, 170, 120), "L. SUPERIOR");
+                DrawScaledLabel(supCenter, IM_COL32(0, 140, 170, 120), "L. SUPERIOR", 4.0f);
 
                 ImVec2 missCenter = ProjectLonLat(-90.5f, 35.1f, canvasCenter, g_MapScale, g_MapOffset);
-                drawList->AddText(missCenter, IM_COL32(0, 140, 170, 120), "MISSISSIPPI R.");
+                DrawScaledLabel(missCenter, IM_COL32(0, 140, 170, 120), "MISSISSIPPI R.", 5.0f);
             }
 
             // Draw state borders
             if (g_ShowStates) {
                 for (int i = 0; i < US_States_Count; ++i) {
                     const auto& state = US_States[i];
+                    float sumLon = 0.0f;
+                    float sumLat = 0.0f;
+                    int ptCount = 0;
                     for (int p = 0; p < state.part_count; ++p) {
                         const auto& part = US_States_Parts[state.part_start + p];
                         DrawMapLine(&US_States_Lon[part.start_index], &US_States_Lat[part.start_index], part.count, IM_COL32(0, 150, 0, 75), 1.0f, true, canvasCenter);
+                        for (int pt = 0; pt < part.count; ++pt) {
+                            sumLon += US_States_Lon[part.start_index + pt];
+                            sumLat += US_States_Lat[part.start_index + pt];
+                            ptCount++;
+                        }
+                    }
+                    if (ptCount > 0) {
+                        float avgLon = sumLon / ptCount;
+                        float avgLat = sumLat / ptCount;
+                        ImVec2 labelPos = ProjectLonLat(avgLon, avgLat, canvasCenter, g_MapScale, g_MapOffset);
+                        DrawScaledLabel(labelPos, IM_COL32(0, 220, 50, 130), state.name, 6.0f);
                     }
                 }
             }
@@ -956,6 +1004,12 @@ int main(int, char**)
                 for (int i = 0; i < US_Highways_Count; ++i) {
                     const auto& hw = US_Highways[i];
                     DrawMapLine(&US_Highways_Lon[hw.start_index], &US_Highways_Lat[hw.start_index], hw.count, IM_COL32(0, 200, 50, 95), 1.2f, false, canvasCenter);
+                    
+                    if (hw.count > 0) {
+                        int midIdx = hw.start_index + hw.count / 2;
+                        ImVec2 labelPos = ProjectLonLat(US_Highways_Lon[midIdx], US_Highways_Lat[midIdx], canvasCenter, g_MapScale, g_MapOffset);
+                        DrawScaledLabel(labelPos, IM_COL32(0, 240, 100, 180), hw.name, 8.0f);
+                    }
                 }
             }
 
@@ -964,6 +1018,12 @@ int main(int, char**)
                 for (int i = 0; i < US_SecondaryHighways_Count; ++i) {
                     const auto& hw = US_SecondaryHighways[i];
                     DrawMapLine(&US_SecondaryHighways_Lon[hw.start_index], &US_SecondaryHighways_Lat[hw.start_index], hw.count, IM_COL32(0, 160, 40, 60), 0.9f, false, canvasCenter);
+                    
+                    if (hw.count > 0) {
+                        int midIdx = hw.start_index + hw.count / 2;
+                        ImVec2 labelPos = ProjectLonLat(US_SecondaryHighways_Lon[midIdx], US_SecondaryHighways_Lat[midIdx], canvasCenter, g_MapScale, g_MapOffset);
+                        DrawScaledLabel(labelPos, IM_COL32(0, 180, 80, 150), hw.name, 12.0f);
+                    }
                 }
             }
 
@@ -972,6 +1032,12 @@ int main(int, char**)
                 for (int i = 0; i < US_Railways_Count; ++i) {
                     const auto& rr = US_Railways[i];
                     DrawMapLine(&US_Railways_Lon[rr.start_index], &US_Railways_Lat[rr.start_index], rr.count, IM_COL32(0, 240, 200, 80), 1.1f, false, canvasCenter);
+                    
+                    if (rr.count > 0) {
+                        int midIdx = rr.start_index + rr.count / 2;
+                        ImVec2 labelPos = ProjectLonLat(US_Railways_Lon[midIdx], US_Railways_Lat[midIdx], canvasCenter, g_MapScale, g_MapOffset);
+                        DrawScaledLabel(labelPos, IM_COL32(0, 200, 180, 160), rr.name, 10.0f);
+                    }
                 }
             }
 
@@ -980,6 +1046,12 @@ int main(int, char**)
                 for (int i = 0; i < US_Pipelines_Count; ++i) {
                     const auto& pl = US_Pipelines[i];
                     DrawMapLine(&US_Pipelines_Lon[pl.start_index], &US_Pipelines_Lat[pl.start_index], pl.count, IM_COL32(0, 150, 200, 85), 1.2f, false, canvasCenter);
+                    
+                    if (pl.count > 0) {
+                        int midIdx = pl.start_index + pl.count / 2;
+                        ImVec2 labelPos = ProjectLonLat(US_Pipelines_Lon[midIdx], US_Pipelines_Lat[midIdx], canvasCenter, g_MapScale, g_MapOffset);
+                        DrawScaledLabel(labelPos, IM_COL32(0, 130, 180, 160), pl.name, 11.0f);
+                    }
                 }
             }
 
@@ -988,6 +1060,12 @@ int main(int, char**)
                 for (int i = 0; i < US_EnergyCorridors_Count; ++i) {
                     const auto& ec = US_EnergyCorridors[i];
                     DrawMapLine(&US_EnergyCorridors_Lon[ec.start_index], &US_EnergyCorridors_Lat[ec.start_index], ec.count, IM_COL32(0, 220, 220, 110), 1.3f, false, canvasCenter);
+                    
+                    if (ec.count > 0) {
+                        int midIdx = ec.start_index + ec.count / 2;
+                        ImVec2 labelPos = ProjectLonLat(US_EnergyCorridors_Lon[midIdx], US_EnergyCorridors_Lat[midIdx], canvasCenter, g_MapScale, g_MapOffset);
+                        DrawScaledLabel(labelPos, IM_COL32(0, 190, 190, 160), ec.name, 10.0f);
+                    }
                 }
             }
 
@@ -1010,6 +1088,8 @@ int main(int, char**)
                     if (hovered && sqrtf(dx * dx + dy * dy) < 4.0f) {
                         ImGui::SetTooltip("%s", sub.name);
                     }
+                    
+                    DrawScaledLabel(ImVec2(p.x + 6, p.y - 4), IM_COL32(0, 180, 180, 150), sub.name, 22.0f);
                 }
             }
 
@@ -1039,6 +1119,12 @@ int main(int, char**)
                     float dy = io.MousePos.y - p.y;
                     if (hovered && sqrtf(dx * dx + dy * dy) < radius + 2.0f) {
                         ImGui::SetTooltip("%s\nFuel: %s | Capacity: %.1f MW", pp.name, pp.fuel, pp.capacity);
+                    }
+                    
+                    if (g_ShowLabels && g_MapScale >= 15.0f) {
+                        char labelText[128];
+                        snprintf(labelText, sizeof(labelText), "%s (%.0f MW)", pp.name, pp.capacity);
+                        DrawScaledLabel(ImVec2(p.x + radius + 4, p.y - 4), color, labelText, 15.0f);
                     }
                 }
             }
@@ -1076,7 +1162,7 @@ int main(int, char**)
                     }
 
                     // Label offset text
-                    drawList->AddText(ImVec2(p.x + 10, p.y - 7), isSelected ? IM_COL32(255, 220, 0, 240) : IM_COL32(0, 240, 50, 190), city.name.c_str());
+                    DrawScaledLabel(ImVec2(p.x + 10, p.y - 7), isSelected ? IM_COL32(255, 220, 0, 240) : IM_COL32(0, 240, 50, 190), city.name.c_str(), 0.0f);
                 }
             }
 
