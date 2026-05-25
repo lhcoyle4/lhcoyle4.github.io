@@ -104,6 +104,15 @@ const float Rockies_Lon_2[] = { -106.0f, -105.0f, -108.0f, -112.0f };
 const float Rockies_Lat_2[] = { 35.0f,   40.0f,   45.0f,   47.0f };
 const int Rockies_Count_2 = sizeof(Rockies_Lon_2) / sizeof(float);
 
+// Major Hydrographic Rivers (Mississippi & Colorado)
+const float Mississippi_Lon[] = { -95.2f, -93.3f, -90.5f, -90.2f, -89.2f, -90.0f, -90.9f, -90.0f, -89.2f };
+const float Mississippi_Lat[] = { 47.2f,  45.0f,  41.5f,  38.6f,  37.0f,  35.1f,  32.3f,  29.9f,  29.1f };
+const int Mississippi_Count = sizeof(Mississippi_Lon) / sizeof(float);
+
+const float Colorado_Lon[] = { -105.8f, -109.9f, -112.1f, -114.7f, -114.5f };
+const float Colorado_Lat[] = { 40.4f,  38.2f,  36.1f,  36.0f,  32.5f };
+const int Colorado_Count = sizeof(Colorado_Lon) / sizeof(float);
+
 // Map viewer state
 std::vector<MapCity> g_MapCities;
 float g_MapScale = 8.0f;
@@ -741,7 +750,7 @@ int main(int, char**)
             ImGui::TextColored(ImVec4(1.0f, 0.8f, 0.0f, 1.0f), "USGS Map Layer Controls");
             ImGui::Separator();
             ImGui::Checkbox("Show National Boundary", &g_ShowBoundary);
-            ImGui::Checkbox("Show Hydrography (Lakes)", &g_ShowLakes);
+            ImGui::Checkbox("Show Hydrography (Lakes & Rivers)", &g_ShowLakes);
             ImGui::Checkbox("Show USGS Telemetry Grid", &g_ShowGrid);
             ImGui::Checkbox("Show USGS Stations (Cities)", &g_ShowCities);
             ImGui::Checkbox("Show Topographic Contours", &g_ShowContours);
@@ -768,7 +777,7 @@ int main(int, char**)
             ImGui::SameLine();
 
             // Interactive National Map Viewer panel
-            ImGui::BeginChild("GisMapViewer", ImVec2(0, 0), true);
+            ImGui::BeginChild("GisMapViewer", ImVec2(0, 0), true, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
             
             ImDrawList* drawList = ImGui::GetWindowDrawList();
             ImVec2 canvasPos = ImGui::GetCursorScreenPos();
@@ -801,8 +810,8 @@ int main(int, char**)
             // Bounding box for mouse input checks
             bool hovered = ImGui::IsWindowHovered();
             
-            // Mouse Dragging to Pan Map
-            if (hovered && ImGui::IsMouseDragging(ImGuiMouseButton_Left)) {
+            // Mouse Dragging to Pan Map (ignore if interacting with buttons)
+            if (hovered && !ImGui::IsAnyItemActive() && ImGui::IsMouseDragging(ImGuiMouseButton_Left)) {
                 g_MapOffset.x += io.MouseDelta.x;
                 g_MapOffset.y += io.MouseDelta.y;
             }
@@ -867,11 +876,22 @@ int main(int, char**)
                 drawList->AddText(rockCenter, IM_COL32(0, 180, 0, 90), "CONTOUR 3000m");
             }
 
-            // Draw hydrography lakes
+            // Draw hydrography lakes and rivers
             if (g_ShowLakes) {
                 DrawMapLine(Lake_Superior_Lon, Lake_Superior_Lat, Lake_Superior_Count, IM_COL32(0, 120, 150, 180), 1.5f, true, canvasCenter);
                 DrawMapLine(Lake_Michigan_Huron_Lon, Lake_Michigan_Huron_Lat, Lake_Michigan_Huron_Count, IM_COL32(0, 120, 150, 180), 1.5f, true, canvasCenter);
                 DrawMapLine(Lake_Erie_Ontario_Lon, Lake_Erie_Ontario_Lat, Lake_Erie_Ontario_Count, IM_COL32(0, 120, 150, 180), 1.5f, true, canvasCenter);
+                
+                // Draw major rivers
+                DrawMapLine(Mississippi_Lon, Mississippi_Lat, Mississippi_Count, IM_COL32(0, 120, 150, 150), 1.5f, false, canvasCenter);
+                DrawMapLine(Colorado_Lon, Colorado_Lat, Colorado_Count, IM_COL32(0, 120, 150, 150), 1.2f, false, canvasCenter);
+
+                // River/Lake text labels
+                ImVec2 supCenter = ProjectLonLat(-88.5f, 47.5f, canvasCenter, g_MapScale, g_MapOffset);
+                drawList->AddText(supCenter, IM_COL32(0, 140, 170, 120), "L. SUPERIOR");
+
+                ImVec2 missCenter = ProjectLonLat(-90.5f, 35.1f, canvasCenter, g_MapScale, g_MapOffset);
+                drawList->AddText(missCenter, IM_COL32(0, 140, 170, 120), "MISSISSIPPI R.");
             }
 
             // Draw national borders
