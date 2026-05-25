@@ -2324,20 +2324,6 @@ int main(int, char**)
 
         ImGui::Spacing();
         ImGui::Separator();
-        ImGui::Spacing();
-
-        // PERMADRIFT launch button
-        ImGui::PushStyleColor(ImGuiCol_Button,        ImVec4(0.02f, 0.04f, 0.18f, 1.0f));
-        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.00f, 0.12f, 0.42f, 1.0f));
-        ImGui::PushStyleColor(ImGuiCol_ButtonActive,  ImVec4(0.00f, 0.20f, 0.60f, 1.0f));
-        ImGui::PushStyleColor(ImGuiCol_Text,          ImVec4(0.40f, 0.85f, 1.00f, 1.0f));
-        if (ImGui::Button(" [>] PLAY PERMADRIFT", ImVec2(-FLT_MIN, 38.0f))) {
-            OpenGitHubLink("https://lhcoyle4.github.io/asteroids_vectrex/");
-        }
-        ImGui::PopStyleColor(4);
-
-        ImGui::Spacing();
-        ImGui::Separator();
         ImGui::TextWrapped("Bio: BSCS + GIS Master's Cert. Portland, ME. Aspiring drone pilot, Python automations, C/C++ programmer.");
 
         ImGui::EndChild();
