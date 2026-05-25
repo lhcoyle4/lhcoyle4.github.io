@@ -12,6 +12,7 @@
 #include <chrono>
 #include <sstream>
 #include <ctime>
+#include <map>
 #include "map_data.h"
 
 
@@ -26,6 +27,108 @@ static void MainLoopForEmscripten()     { MainLoopForEmscriptenP(); }
 #define EMSCRIPTEN_MAINLOOP_BEGIN
 #define EMSCRIPTEN_MAINLOOP_END
 #endif
+
+// ===== TILE BASEMAP SYSTEM =====
+struct TileKey {
+    int z, x, y;
+    bool operator<(const TileKey& o) const {
+        if (z != o.z) return z < o.z;
+        if (x != o.x) return x < o.x;
+        return y < o.y;
+    }
+};
+struct TileData {
+    int   id      = 0;
+    GLuint texId  = 0;
+    bool  requested = false;
+    bool  loaded  = false;
+    bool  failed  = false;
+};
+static std::map<TileKey, TileData> g_TileCache;
+static int g_NextTileId = 1;
+static bool g_ShowBasemap = true;
+
+#ifdef __EMSCRIPTEN__
+// JS side: fetch tile PNG, convert to raw RGBA bytes on WASM heap, call back into C++
+EM_JS(void, js_request_tile, (int tileId, const char* url), {
+    var tileUrl = UTF8ToString(url);
+    fetch(tileUrl, {mode:'cors'})
+        .then(function(r){ return r.blob(); })
+        .then(function(b){ return createImageBitmap(b); })
+        .then(function(bmp){
+            var w = bmp.width, h = bmp.height;
+            var cv = document.createElement('canvas');
+            cv.width = w; cv.height = h;
+            var cx = cv.getContext('2d');
+            cx.drawImage(bmp, 0, 0);
+            var id = cx.getImageData(0, 0, w, h);
+            var len = w * h * 4;
+            var ptr = Module._malloc(len);
+            Module.HEAPU8.set(id.data, ptr);
+            Module._js_tile_upload_pixels(tileId, ptr, w, h);
+            Module._free(ptr);
+        })
+        .catch(function(){ Module._js_tile_upload_pixels(tileId, 0, 0, 0); });
+});
+#else
+void js_request_tile(int, const char*) {}
+#endif
+
+// Called from JS: creates an OpenGL texture from raw RGBA bytes on the heap
+extern "C" void js_tile_upload_pixels(int tileId, unsigned char* pixels, int w, int h) {
+    for (auto& kv : g_TileCache) {
+        TileData& td = kv.second;
+        if (td.id != tileId) continue;
+        if (pixels && w > 0 && h > 0) {
+            GLuint tex = 0;
+            glGenTextures(1, &tex);
+            glBindTexture(GL_TEXTURE_2D, tex);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+            glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, w, h, 0, GL_RGBA, GL_UNSIGNED_BYTE, pixels);
+            glBindTexture(GL_TEXTURE_2D, 0);
+            td.texId = tex;
+            td.loaded = true;
+        } else {
+            td.failed = true;
+        }
+        break;
+    }
+}
+
+// Tile math helpers (Web Mercator)
+static double TileLonMin(int tx, int z) { return tx / (double)(1 << z) * 360.0 - 180.0; }
+static double TileLonMax(int tx, int z) { return (tx + 1) / (double)(1 << z) * 360.0 - 180.0; }
+static double TileLatMax(int ty, int z) {
+    double n = 3.14159265358979 - 2.0 * 3.14159265358979 * ty / (double)(1 << z);
+    return 180.0 / 3.14159265358979 * atan(0.5 * (exp(n) - exp(-n)));
+}
+static double TileLatMin(int ty, int z) { return TileLatMax(ty + 1, z); }
+static int LonToTileX(double lon, int z) {
+    return (int)floor((lon + 180.0) / 360.0 * (1 << z));
+}
+static int LatToTileY(double lat, int z) {
+    double s = sin(lat * 3.14159265358979 / 180.0);
+    double y = 0.5 - log((1.0 + s) / (1.0 - s)) / (4.0 * 3.14159265358979);
+    return (int)floor(y * (1 << z));
+}
+static void RequestTile(int z, int x, int y) {
+    int maxTile = (1 << z) - 1;
+    if (x < 0 || x > maxTile || y < 0 || y > maxTile) return;
+    TileKey key{z, x, y};
+    TileData& td = g_TileCache[key];
+    if (td.requested || td.loaded || td.failed) return;
+    td.id = g_NextTileId++;
+    td.requested = true;
+    char url[256];
+    // Carto Dark (no labels) - CORS-enabled, public
+    snprintf(url, sizeof(url),
+        "https://basemaps.cartocdn.com/dark_nolabels/%d/%d/%d.png", z, x, y);
+    js_request_tile(td.id, url);
+}
+// ===== END TILE SYSTEM =====
 
 // Structs for state
 struct LogSegment {
@@ -352,6 +455,7 @@ float g_MapScale = 8.0f;
 ImVec2 g_MapOffset = ImVec2(0.0f, 0.0f);
 bool g_ShowBoundary = true;
 bool g_ShowWorld = true;
+// g_ShowBasemap declared earlier in tile system
 bool g_ShowStates = true;
 bool g_ShowLakes = true;
 bool g_ShowHighways = true;
@@ -3146,8 +3250,9 @@ int main(int, char**)
                     g_ShowLabelsContours = g_ShowLabels;
                 }
             }
+            ImGui::Checkbox("Tile Basemap (Carto Dark)", &g_ShowBasemap);
             ImGui::Checkbox("Show National Boundary", &g_ShowBoundary);
-            
+
             ImGui::Checkbox("Show World Countries", &g_ShowWorld);
             if (g_ShowWorld) {
                 ImGui::Indent(15.0f);
@@ -3368,6 +3473,31 @@ int main(int, char**)
                 return false;
             };
 
+            // Ray-casting point-in-polygon test (screen space)
+            auto IsMouseInPolygon = [&](const float* lons, const float* lats, int count, ImVec2 center) -> bool {
+                if (count < 3) return false;
+                ImVec2 mp = io.MousePos;
+                // Quick bounding-box reject
+                float bxMin = 1e9f, bxMax = -1e9f, byMin = 1e9f, byMax = -1e9f;
+                for (int i = 0; i < count; ++i) {
+                    ImVec2 p = ProjectLonLat(lons[i], lats[i], center, g_MapScale, g_MapOffset);
+                    if (p.x < bxMin) bxMin = p.x; if (p.x > bxMax) bxMax = p.x;
+                    if (p.y < byMin) byMin = p.y; if (p.y > byMax) byMax = p.y;
+                }
+                if (mp.x < bxMin || mp.x > bxMax || mp.y < byMin || mp.y > byMax) return false;
+                // Ray casting
+                int crossings = 0;
+                ImVec2 prev = ProjectLonLat(lons[count-1], lats[count-1], center, g_MapScale, g_MapOffset);
+                for (int i = 0; i < count; ++i) {
+                    ImVec2 cur = ProjectLonLat(lons[i], lats[i], center, g_MapScale, g_MapOffset);
+                    if (((cur.y > mp.y) != (prev.y > mp.y)) &&
+                        (mp.x < (prev.x - cur.x) * (mp.y - cur.y) / (prev.y - cur.y) + cur.x))
+                        crossings++;
+                    prev = cur;
+                }
+                return (crossings & 1) != 0;
+            };
+
             struct QueuedLabel {
                 ImVec2 pos;
                 ImU32 color;
@@ -3435,14 +3565,73 @@ int main(int, char**)
                 
                 g_MapScale *= zoomFactor;
                 if (g_MapScale < 2.0f) g_MapScale = 2.0f;
-                if (g_MapScale > 120.0f) g_MapScale = 120.0f;
+                if (g_MapScale > 1200.0f) g_MapScale = 1200.0f;
                 
                 g_MapOffset.x = mousePos.x - canvasCenter.x - mapMouse.x * g_MapScale;
                 g_MapOffset.y = mousePos.y - canvasCenter.y - mapMouse.y * g_MapScale * 1.35f;
             }
 
+            // Right-click on map to copy GPS coordinates to clipboard
+            static float s_CoordCopyTimer = 0.0f;
+            static char s_CoordCopyText[64] = "";
+            if (hovered && ImGui::IsMouseReleased(ImGuiMouseButton_Right) && io.MouseDragMaxDistanceSqr[1] < 16.0f) {
+                ImVec2 mp = io.MousePos;
+                float clickLon = (mp.x - canvasCenter.x - g_MapOffset.x) / g_MapScale + (-96.0f);
+                float clickLat = -((mp.y - canvasCenter.y - g_MapOffset.y) / (g_MapScale * 1.35f)) + 37.0f;
+                snprintf(s_CoordCopyText, sizeof(s_CoordCopyText), "%.5f, %.5f", clickLat, clickLon);
+                ImGui::SetClipboardText(s_CoordCopyText);
+                s_CoordCopyTimer = 2.5f;
+            }
+            s_CoordCopyTimer -= io.DeltaTime;
+
             // Push clipping rect so map rendering stays strictly within canvas bounds
             drawList->PushClipRect(canvasPos, ImVec2(canvasPos.x + canvasSize.x, canvasPos.y + canvasSize.y), true);
+
+            // ---- Draw tile basemap (bottom-most layer) ----
+            if (g_ShowBasemap) {
+                // Pick tile zoom level proportional to map scale
+                int tileZ = (int)floor(log2((double)g_MapScale) + 1.2);
+                if (tileZ < 3) tileZ = 3;
+                if (tileZ > 14) tileZ = 14;
+
+                // Compute visible lon/lat extents
+                float vLonMin = (canvasPos.x - canvasCenter.x - g_MapOffset.x) / g_MapScale + (-96.0f);
+                float vLonMax = (canvasPos.x + canvasSize.x - canvasCenter.x - g_MapOffset.x) / g_MapScale + (-96.0f);
+                float vLatMax = -((canvasPos.y - canvasCenter.y - g_MapOffset.y) / (g_MapScale * 1.35f)) + 37.0f;
+                float vLatMin = -((canvasPos.y + canvasSize.y - canvasCenter.y - g_MapOffset.y) / (g_MapScale * 1.35f)) + 37.0f;
+
+                // Clamp to valid Web Mercator bounds
+                if (vLonMin < -180.0f) vLonMin = -180.0f;
+                if (vLonMax >  180.0f) vLonMax =  180.0f;
+                if (vLatMin < -85.0f)  vLatMin = -85.0f;
+                if (vLatMax >  85.0f)  vLatMax =  85.0f;
+
+                int txMin = LonToTileX(vLonMin, tileZ);
+                int txMax = LonToTileX(vLonMax, tileZ);
+                int tyMin = LatToTileY(vLatMax, tileZ);
+                int tyMax = LatToTileY(vLatMin, tileZ);
+                int maxTile = (1 << tileZ) - 1;
+                if (txMin < 0) txMin = 0; if (txMax > maxTile) txMax = maxTile;
+                if (tyMin < 0) tyMin = 0; if (tyMax > maxTile) tyMax = maxTile;
+                // Safety cap to avoid fetching hundreds of tiles
+                if (txMax - txMin > 8) txMax = txMin + 8;
+                if (tyMax - tyMin > 8) tyMax = tyMin + 8;
+
+                for (int ty = tyMin; ty <= tyMax; ++ty) {
+                    for (int tx = txMin; tx <= txMax; ++tx) {
+                        RequestTile(tileZ, tx, ty);
+                        auto it = g_TileCache.find({tileZ, tx, ty});
+                        if (it != g_TileCache.end() && it->second.loaded && it->second.texId != 0) {
+                            ImVec2 tl = ProjectLonLat((float)TileLonMin(tx, tileZ), (float)TileLatMax(ty, tileZ), canvasCenter, g_MapScale, g_MapOffset);
+                            ImVec2 br = ProjectLonLat((float)TileLonMax(tx, tileZ), (float)TileLatMin(ty, tileZ), canvasCenter, g_MapScale, g_MapOffset);
+                            // Tinted green to match terminal aesthetic
+                            drawList->AddImage((ImTextureID)(intptr_t)it->second.texId, tl, br,
+                                ImVec2(0,0), ImVec2(1,1), IM_COL32(80, 200, 110, 200));
+                        }
+                    }
+                }
+            }
+            // ---- End tile basemap ----
 
             // Draw grid lines
             if (g_ShowGrid) {
@@ -3533,7 +3722,9 @@ int main(int, char**)
                         // Outline
                         DrawMapLine(&US_Lakes_Lon[part.start_index], &US_Lakes_Lat[part.start_index], part.count, LAKE_OUTLINE, 2.2f, true, canvasCenter);
 
-                        bool isLakeHovered = hovered && IsMouseNearLine(&US_Lakes_Lon[part.start_index], &US_Lakes_Lat[part.start_index], part.count, canvasCenter, 4.0f, true);
+                        bool isLakeHovered = hovered &&
+                            (IsMouseNearLine(&US_Lakes_Lon[part.start_index], &US_Lakes_Lat[part.start_index], part.count, canvasCenter, 4.0f, true) ||
+                             IsMouseInPolygon(&US_Lakes_Lon[part.start_index], &US_Lakes_Lat[part.start_index], part.count, canvasCenter));
                         if (isLakeHovered) {
                             ImGui::SetTooltip("[Lake] %s\nClick to get AI Overview details.", lake.name);
                             if (ImGui::IsMouseReleased(ImGuiMouseButton_Left) && io.MouseDragMaxDistanceSqr[0] < 16.0f) {
@@ -3597,7 +3788,7 @@ int main(int, char**)
             if (g_ShowHighways) {
                 for (int i = 0; i < US_Highways_Count; ++i) {
                     const auto& hw = US_Highways[i];
-                    DrawMapLine(&US_Highways_Lon[hw.start_index], &US_Highways_Lat[hw.start_index], hw.count, IM_COL32(0, 200, 50, 95), 1.2f, false, canvasCenter);
+                    DrawMapLine(&US_Highways_Lon[hw.start_index], &US_Highways_Lat[hw.start_index], hw.count, IM_COL32(220, 60, 30, 130), 1.2f, false, canvasCenter);
                     
                     bool isHwHovered = hovered && IsMouseNearLine(&US_Highways_Lon[hw.start_index], &US_Highways_Lat[hw.start_index], hw.count, canvasCenter, 4.0f, false);
                     if (isHwHovered) {
@@ -3610,7 +3801,7 @@ int main(int, char**)
                     if (hw.count > 0) {
                         int midIdx = hw.start_index + hw.count / 2;
                         ImVec2 labelPos = ProjectLonLat(US_Highways_Lon[midIdx], US_Highways_Lat[midIdx], canvasCenter, g_MapScale, g_MapOffset);
-                        QueueScaledLabel(labelPos, IM_COL32(0, 240, 100, 180), hw.name, 8.0f, g_ShowLabelsHighways, 30, "Interstate");
+                        QueueScaledLabel(labelPos, IM_COL32(255, 100, 70, 210), hw.name, 8.0f, g_ShowLabelsHighways, 30, "Interstate");
                     }
                 }
             }
@@ -3619,7 +3810,7 @@ int main(int, char**)
             if (g_ShowUSHighways) {
                 for (int i = 0; i < US_SecondaryHighways_Count; ++i) {
                     const auto& hw = US_SecondaryHighways[i];
-                    DrawMapLine(&US_SecondaryHighways_Lon[hw.start_index], &US_SecondaryHighways_Lat[hw.start_index], hw.count, IM_COL32(0, 160, 40, 60), 0.9f, false, canvasCenter);
+                    DrawMapLine(&US_SecondaryHighways_Lon[hw.start_index], &US_SecondaryHighways_Lat[hw.start_index], hw.count, IM_COL32(200, 145, 20, 90), 0.9f, false, canvasCenter);
                     
                     bool isHwHovered = hovered && IsMouseNearLine(&US_SecondaryHighways_Lon[hw.start_index], &US_SecondaryHighways_Lat[hw.start_index], hw.count, canvasCenter, 4.0f, false);
                     if (isHwHovered) {
@@ -3632,7 +3823,7 @@ int main(int, char**)
                     if (hw.count > 0) {
                         int midIdx = hw.start_index + hw.count / 2;
                         ImVec2 labelPos = ProjectLonLat(US_SecondaryHighways_Lon[midIdx], US_SecondaryHighways_Lat[midIdx], canvasCenter, g_MapScale, g_MapOffset);
-                        QueueScaledLabel(labelPos, IM_COL32(0, 180, 80, 150), hw.name, 12.0f, g_ShowLabelsUSHighways, 20, "US Hwy");
+                        QueueScaledLabel(labelPos, IM_COL32(220, 170, 50, 180), hw.name, 12.0f, g_ShowLabelsUSHighways, 20, "US Hwy");
                     }
                 }
             }
@@ -3641,7 +3832,7 @@ int main(int, char**)
             if (g_ShowRailways) {
                 for (int i = 0; i < US_Railways_Count; ++i) {
                     const auto& rr = US_Railways[i];
-                    DrawMapLine(&US_Railways_Lon[rr.start_index], &US_Railways_Lat[rr.start_index], rr.count, IM_COL32(0, 240, 200, 80), 1.1f, false, canvasCenter);
+                    DrawMapLine(&US_Railways_Lon[rr.start_index], &US_Railways_Lat[rr.start_index], rr.count, IM_COL32(160, 155, 165, 100), 1.1f, false, canvasCenter);
                     
                     bool isRrHovered = hovered && IsMouseNearLine(&US_Railways_Lon[rr.start_index], &US_Railways_Lat[rr.start_index], rr.count, canvasCenter, 4.0f, false);
                     if (isRrHovered) {
@@ -3654,7 +3845,7 @@ int main(int, char**)
                     if (rr.count > 0) {
                         int midIdx = rr.start_index + rr.count / 2;
                         ImVec2 labelPos = ProjectLonLat(US_Railways_Lon[midIdx], US_Railways_Lat[midIdx], canvasCenter, g_MapScale, g_MapOffset);
-                        QueueScaledLabel(labelPos, IM_COL32(0, 200, 180, 160), rr.name, 10.0f, g_ShowLabelsRailways, 15, "Railway");
+                        QueueScaledLabel(labelPos, IM_COL32(185, 180, 190, 175), rr.name, 10.0f, g_ShowLabelsRailways, 15, "Railway");
                     }
                 }
             }
@@ -3663,7 +3854,7 @@ int main(int, char**)
             if (g_ShowPipelines) {
                 for (int i = 0; i < US_Pipelines_Count; ++i) {
                     const auto& pl = US_Pipelines[i];
-                    DrawMapLine(&US_Pipelines_Lon[pl.start_index], &US_Pipelines_Lat[pl.start_index], pl.count, IM_COL32(0, 150, 200, 85), 1.2f, false, canvasCenter);
+                    DrawMapLine(&US_Pipelines_Lon[pl.start_index], &US_Pipelines_Lat[pl.start_index], pl.count, IM_COL32(185, 120, 35, 105), 1.2f, false, canvasCenter);
                     
                     bool isPlHovered = hovered && IsMouseNearLine(&US_Pipelines_Lon[pl.start_index], &US_Pipelines_Lat[pl.start_index], pl.count, canvasCenter, 4.0f, false);
                     if (isPlHovered) {
@@ -3676,7 +3867,7 @@ int main(int, char**)
                     if (pl.count > 0) {
                         int midIdx = pl.start_index + pl.count / 2;
                         ImVec2 labelPos = ProjectLonLat(US_Pipelines_Lon[midIdx], US_Pipelines_Lat[midIdx], canvasCenter, g_MapScale, g_MapOffset);
-                        QueueScaledLabel(labelPos, IM_COL32(0, 130, 180, 160), pl.name, 11.0f, g_ShowLabelsPipelines, 10, "Pipeline");
+                        QueueScaledLabel(labelPos, IM_COL32(205, 145, 60, 180), pl.name, 11.0f, g_ShowLabelsPipelines, 10, "Pipeline");
                     }
                 }
             }
@@ -3685,7 +3876,7 @@ int main(int, char**)
             if (g_ShowEnergyCorridors) {
                 for (int i = 0; i < US_EnergyCorridors_Count; ++i) {
                     const auto& ec = US_EnergyCorridors[i];
-                    DrawMapLine(&US_EnergyCorridors_Lon[ec.start_index], &US_EnergyCorridors_Lat[ec.start_index], ec.count, IM_COL32(0, 220, 220, 110), 1.3f, false, canvasCenter);
+                    DrawMapLine(&US_EnergyCorridors_Lon[ec.start_index], &US_EnergyCorridors_Lat[ec.start_index], ec.count, IM_COL32(0, 230, 175, 120), 1.3f, false, canvasCenter);
                     
                     bool isEcHovered = hovered && IsMouseNearLine(&US_EnergyCorridors_Lon[ec.start_index], &US_EnergyCorridors_Lat[ec.start_index], ec.count, canvasCenter, 4.0f, false);
                     if (isEcHovered) {
@@ -3698,7 +3889,7 @@ int main(int, char**)
                     if (ec.count > 0) {
                         int midIdx = ec.start_index + ec.count / 2;
                         ImVec2 labelPos = ProjectLonLat(US_EnergyCorridors_Lon[midIdx], US_EnergyCorridors_Lat[midIdx], canvasCenter, g_MapScale, g_MapOffset);
-                        QueueScaledLabel(labelPos, IM_COL32(0, 190, 190, 160), ec.name, 10.0f, g_ShowLabelsEnergyCorridors, 5, "Corridor");
+                        QueueScaledLabel(labelPos, IM_COL32(0, 245, 195, 185), ec.name, 10.0f, g_ShowLabelsEnergyCorridors, 5, "Corridor");
                     }
                 }
             }
@@ -3967,6 +4158,23 @@ int main(int, char**)
             // Pop clipping rect
             drawList->PopClipRect();
 
+            // GPS coordinate copy toast notification
+            if (s_CoordCopyTimer > 0.0f) {
+                float alpha = s_CoordCopyTimer > 0.5f ? 1.0f : s_CoordCopyTimer * 2.0f;
+                ImU32 toastBg   = IM_COL32(0, 20, 5, (int)(220 * alpha));
+                ImU32 toastBdr  = IM_COL32(0, 255, 80, (int)(200 * alpha));
+                ImU32 toastTxt  = IM_COL32(0, 255, 80, (int)(255 * alpha));
+                ImU32 toastSub  = IM_COL32(0, 180, 60, (int)(200 * alpha));
+                char toastLine1[80]; snprintf(toastLine1, sizeof(toastLine1), "[ COORDS COPIED ]");
+                char toastLine2[80]; snprintf(toastLine2, sizeof(toastLine2), "%s", s_CoordCopyText);
+                float toastX = canvasPos.x + canvasSize.x * 0.5f - 100.0f;
+                float toastY = canvasPos.y + 18.0f;
+                drawList->AddRectFilled(ImVec2(toastX - 10, toastY - 6), ImVec2(toastX + 210, toastY + 36), toastBg, 4.0f);
+                drawList->AddRect(ImVec2(toastX - 10, toastY - 6), ImVec2(toastX + 210, toastY + 36), toastBdr, 4.0f, 0, 1.5f);
+                drawList->AddText(ImVec2(toastX, toastY), toastTxt, toastLine1);
+                drawList->AddText(ImVec2(toastX, toastY + 16), toastSub, toastLine2);
+            }
+
             // Draw HUD Info Overlays (Floating inside canvas)
             
             // 1. Compass Rose (Top Right)
@@ -4003,7 +4211,7 @@ int main(int, char**)
             ImGui::SetCursorScreenPos(ImVec2(canvasPos.x + canvasSize.x - 180.0f, canvasPos.y + canvasSize.y - 45.0f));
             if (ImGui::Button("[+]", ImVec2(35, 30))) {
                 g_MapScale *= 1.25f;
-                if (g_MapScale > 120.0f) g_MapScale = 120.0f;
+                if (g_MapScale > 1200.0f) g_MapScale = 1200.0f;
             }
             ImGui::SameLine();
             if (ImGui::Button("[-]", ImVec2(35, 30))) {

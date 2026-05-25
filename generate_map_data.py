@@ -227,9 +227,9 @@ for feat in lakes_data['features']:
         if part_count > 0:
             lake_features.append((name, part_start, part_count))
 
-# 4. Fetch 50m Rivers
-print("Downloading 50m rivers GeoJSON...")
-url_rivers = "https://raw.githubusercontent.com/nvkelso/natural-earth-vector/master/geojson/ne_50m_rivers_lake_centerlines.geojson"
+# 4. Fetch 10m Rivers (higher resolution than 50m)
+print("Downloading 10m rivers GeoJSON...")
+url_rivers = "https://raw.githubusercontent.com/nvkelso/natural-earth-vector/master/geojson/ne_10m_rivers_lake_centerlines.geojson"
 req_rivers = urllib.request.Request(url_rivers, headers={'User-Agent': 'Mozilla/5.0'})
 response_rivers = urllib.request.urlopen(req_rivers)
 rivers_data = json.loads(response_rivers.read().decode('utf-8'))
@@ -350,7 +350,7 @@ railroads_paths = {
 railroads_coords = {}
 for name, path in railroads_paths.items():
     points = [cities[c] for c in path]
-    wiggled = add_noise_to_line(points, noise_level=0.02, detail_steps=2)
+    wiggled = add_noise_to_line(points, noise_level=0.018, detail_steps=4)
     railroads_coords[name] = wiggled
 
 # 8. Generate energy pipelines
@@ -368,7 +368,7 @@ pipeline_paths = {
 pipeline_coords = {}
 for name, path in pipeline_paths.items():
     points = [cities[c] for c in path]
-    wiggled = add_noise_to_line(points, noise_level=0.03, detail_steps=2)
+    wiggled = add_noise_to_line(points, noise_level=0.025, detail_steps=4)
     pipeline_coords[name] = wiggled
 
 # 9. Generate energy corridors (HV transmission lines)
@@ -389,7 +389,7 @@ corridor_paths = {
 corridor_coords = {}
 for name, path in corridor_paths.items():
     points = [cities[c] for c in path]
-    wiggled = add_noise_to_line(points, noise_level=0.02, detail_steps=2)
+    wiggled = add_noise_to_line(points, noise_level=0.018, detail_steps=4)
     corridor_coords[name] = wiggled
 
 # 10. Generate US Highways (Secondary roads)
@@ -405,7 +405,7 @@ us_highways_paths = {
 us_highways_coords = {}
 for name, path in us_highways_paths.items():
     points = [cities[c] for c in path]
-    wiggled = add_noise_to_line(points, noise_level=0.025, detail_steps=2)
+    wiggled = add_noise_to_line(points, noise_level=0.02, detail_steps=4)
     us_highways_coords[name] = wiggled
 
 # 11. Generate Substations
@@ -435,7 +435,7 @@ interstates_paths = {
 interstates_coords = {}
 for name, path in interstates_paths.items():
     points = [cities[c] for c in path]
-    wiggled = add_noise_to_line(points, noise_level=0.03, detail_steps=2)
+    wiggled = add_noise_to_line(points, noise_level=0.025, detail_steps=4)
     interstates_coords[name] = wiggled
 
 # 13. Generate Procedural Contours
