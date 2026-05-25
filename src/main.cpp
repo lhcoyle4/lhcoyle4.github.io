@@ -934,22 +934,33 @@ int main(int, char**)
                 }
             };
 
+            struct QueuedLabel {
+                ImVec2 pos;
+                ImU32 color;
+                std::string text;
+                float size;
+                int priority;
+                std::string layerName;
+            };
+            static std::vector<QueuedLabel> s_QueuedLabels;
+            s_QueuedLabels.clear();
+
             float fontScale = g_MapScale / 16.0f;
             if (fontScale < 0.35f) fontScale = 0.35f;
             if (fontScale > 1.5f) fontScale = 1.5f;
 
-            auto DrawScaledLabel = [&](ImVec2 pos, ImU32 color, const char* text, float minScaleToShow = 0.0f, bool layerToggle = true) {
+            auto QueueScaledLabel = [&](ImVec2 pos, ImU32 color, const char* text, float minScaleToShow, bool layerToggle, int priority, const char* layerName) {
                 if (!g_ShowLabels || !layerToggle) return;
                 if (g_MapScale < minScaleToShow) return;
                 
-                // Viewport boundary check before rendering text
+                // Viewport boundary check
                 if (pos.x < canvasPos.x - 10.0f || pos.x > canvasPos.x + canvasSize.x + 10.0f ||
                     pos.y < canvasPos.y - 10.0f || pos.y > canvasPos.y + canvasSize.y + 10.0f) {
                     return;
                 }
                 
                 float size = ImGui::GetFontSize() * fontScale;
-                drawList->AddText(ImGui::GetFont(), size, pos, color, text);
+                s_QueuedLabels.push_back({ pos, color, text, size, priority, layerName });
             };
 
             ImVec2 canvasCenter = ImVec2(canvasPos.x + canvasSize.x * 0.5f, canvasPos.y + canvasSize.y * 0.5f);
@@ -1032,7 +1043,7 @@ int main(int, char**)
                         float avgLon = sumLon / ptCount;
                         float avgLat = sumLat / ptCount;
                         ImVec2 labelPos = ProjectLonLat(avgLon, avgLat, canvasCenter, g_MapScale, g_MapOffset);
-                        DrawScaledLabel(labelPos, IM_COL32(0, 200, 30, 150), country.name, 4.0f, g_ShowLabelsWorld);
+                        QueueScaledLabel(labelPos, IM_COL32(0, 200, 30, 150), country.name, 4.0f, g_ShowLabelsWorld, 80, "Country");
                     }
                 }
             }
@@ -1046,10 +1057,10 @@ int main(int, char**)
                 
                 // Draw text descriptors near ridges
                 ImVec2 appCenter = ProjectLonLat(-77.0f, 40.0f, canvasCenter, g_MapScale, g_MapOffset);
-                DrawScaledLabel(appCenter, IM_COL32(0, 180, 0, 90), "CONTOUR 1000m", 6.0f, g_ShowLabelsContours);
+                QueueScaledLabel(appCenter, IM_COL32(0, 180, 0, 90), "CONTOUR 1000m", 6.0f, g_ShowLabelsContours, 40, "Contour");
                 
                 ImVec2 rockCenter = ProjectLonLat(-110.0f, 42.0f, canvasCenter, g_MapScale, g_MapOffset);
-                DrawScaledLabel(rockCenter, IM_COL32(0, 180, 0, 90), "CONTOUR 3000m", 6.0f, g_ShowLabelsContours);
+                QueueScaledLabel(rockCenter, IM_COL32(0, 180, 0, 90), "CONTOUR 3000m", 6.0f, g_ShowLabelsContours, 40, "Contour");
             }
 
             // Draw hydrography lakes and rivers
@@ -1074,10 +1085,10 @@ int main(int, char**)
 
                 // River/Lake text labels
                 ImVec2 supCenter = ProjectLonLat(-88.5f, 47.5f, canvasCenter, g_MapScale, g_MapOffset);
-                DrawScaledLabel(supCenter, IM_COL32(0, 140, 170, 120), "L. SUPERIOR", 4.0f, g_ShowLabelsLakes);
+                QueueScaledLabel(supCenter, IM_COL32(0, 140, 170, 120), "L. SUPERIOR", 4.0f, g_ShowLabelsLakes, 50, "Lake");
 
                 ImVec2 missCenter = ProjectLonLat(-90.5f, 35.1f, canvasCenter, g_MapScale, g_MapOffset);
-                DrawScaledLabel(missCenter, IM_COL32(0, 140, 170, 120), "MISSISSIPPI R.", 5.0f, g_ShowLabelsLakes);
+                QueueScaledLabel(missCenter, IM_COL32(0, 140, 170, 120), "MISSISSIPPI R.", 5.0f, g_ShowLabelsLakes, 50, "River");
             }
 
             // Draw state borders
@@ -1100,7 +1111,7 @@ int main(int, char**)
                         float avgLon = sumLon / ptCount;
                         float avgLat = sumLat / ptCount;
                         ImVec2 labelPos = ProjectLonLat(avgLon, avgLat, canvasCenter, g_MapScale, g_MapOffset);
-                        DrawScaledLabel(labelPos, IM_COL32(0, 220, 50, 130), state.name, 6.0f, g_ShowLabelsStates);
+                        QueueScaledLabel(labelPos, IM_COL32(0, 220, 50, 130), state.name, 6.0f, g_ShowLabelsStates, 90, "State");
                     }
                 }
             }
@@ -1114,7 +1125,7 @@ int main(int, char**)
                     if (hw.count > 0) {
                         int midIdx = hw.start_index + hw.count / 2;
                         ImVec2 labelPos = ProjectLonLat(US_Highways_Lon[midIdx], US_Highways_Lat[midIdx], canvasCenter, g_MapScale, g_MapOffset);
-                        DrawScaledLabel(labelPos, IM_COL32(0, 240, 100, 180), hw.name, 8.0f, g_ShowLabelsHighways);
+                        QueueScaledLabel(labelPos, IM_COL32(0, 240, 100, 180), hw.name, 8.0f, g_ShowLabelsHighways, 30, "Interstate");
                     }
                 }
             }
@@ -1128,7 +1139,7 @@ int main(int, char**)
                     if (hw.count > 0) {
                         int midIdx = hw.start_index + hw.count / 2;
                         ImVec2 labelPos = ProjectLonLat(US_SecondaryHighways_Lon[midIdx], US_SecondaryHighways_Lat[midIdx], canvasCenter, g_MapScale, g_MapOffset);
-                        DrawScaledLabel(labelPos, IM_COL32(0, 180, 80, 150), hw.name, 12.0f, g_ShowLabelsUSHighways);
+                        QueueScaledLabel(labelPos, IM_COL32(0, 180, 80, 150), hw.name, 12.0f, g_ShowLabelsUSHighways, 20, "US Hwy");
                     }
                 }
             }
@@ -1142,7 +1153,7 @@ int main(int, char**)
                     if (rr.count > 0) {
                         int midIdx = rr.start_index + rr.count / 2;
                         ImVec2 labelPos = ProjectLonLat(US_Railways_Lon[midIdx], US_Railways_Lat[midIdx], canvasCenter, g_MapScale, g_MapOffset);
-                        DrawScaledLabel(labelPos, IM_COL32(0, 200, 180, 160), rr.name, 10.0f, g_ShowLabelsRailways);
+                        QueueScaledLabel(labelPos, IM_COL32(0, 200, 180, 160), rr.name, 10.0f, g_ShowLabelsRailways, 15, "Railroad");
                     }
                 }
             }
@@ -1156,7 +1167,7 @@ int main(int, char**)
                     if (pl.count > 0) {
                         int midIdx = pl.start_index + pl.count / 2;
                         ImVec2 labelPos = ProjectLonLat(US_Pipelines_Lon[midIdx], US_Pipelines_Lat[midIdx], canvasCenter, g_MapScale, g_MapOffset);
-                        DrawScaledLabel(labelPos, IM_COL32(0, 130, 180, 160), pl.name, 11.0f, g_ShowLabelsPipelines);
+                        QueueScaledLabel(labelPos, IM_COL32(0, 130, 180, 160), pl.name, 11.0f, g_ShowLabelsPipelines, 10, "Pipeline");
                     }
                 }
             }
@@ -1170,7 +1181,7 @@ int main(int, char**)
                     if (ec.count > 0) {
                         int midIdx = ec.start_index + ec.count / 2;
                         ImVec2 labelPos = ProjectLonLat(US_EnergyCorridors_Lon[midIdx], US_EnergyCorridors_Lat[midIdx], canvasCenter, g_MapScale, g_MapOffset);
-                        DrawScaledLabel(labelPos, IM_COL32(0, 190, 190, 160), ec.name, 10.0f, g_ShowLabelsEnergyCorridors);
+                        QueueScaledLabel(labelPos, IM_COL32(0, 190, 190, 160), ec.name, 10.0f, g_ShowLabelsEnergyCorridors, 5, "Corridor");
                     }
                 }
             }
@@ -1195,7 +1206,7 @@ int main(int, char**)
                         ImGui::SetTooltip("%s", sub.name);
                     }
                     
-                    DrawScaledLabel(ImVec2(p.x + 6, p.y - 4), IM_COL32(0, 180, 180, 150), sub.name, 22.0f, g_ShowLabelsSubstations);
+                    QueueScaledLabel(ImVec2(p.x + 6, p.y - 4), IM_COL32(0, 180, 180, 150), sub.name, 22.0f, g_ShowLabelsSubstations, 60, "Substation");
                 }
             }
 
@@ -1230,7 +1241,7 @@ int main(int, char**)
                     if (g_MapScale >= 15.0f) {
                         char labelText[128];
                         snprintf(labelText, sizeof(labelText), "%s (%.0f MW)", pp.name, pp.capacity);
-                        DrawScaledLabel(ImVec2(p.x + radius + 4, p.y - 4), color, labelText, 15.0f, g_ShowLabelsPowerPlants);
+                        QueueScaledLabel(ImVec2(p.x + radius + 4, p.y - 4), color, labelText, 15.0f, g_ShowLabelsPowerPlants, 70, "Power Plant");
                     }
                 }
             }
@@ -1268,7 +1279,99 @@ int main(int, char**)
                     }
 
                     // Label offset text
-                    DrawScaledLabel(ImVec2(p.x + 10, p.y - 7), isSelected ? IM_COL32(255, 220, 0, 240) : IM_COL32(0, 240, 50, 190), city.name.c_str(), 0.0f, g_ShowLabelsCities);
+                    QueueScaledLabel(ImVec2(p.x + 10, p.y - 7), isSelected ? IM_COL32(255, 220, 0, 240) : IM_COL32(0, 240, 50, 190), city.name.c_str(), 0.0f, g_ShowLabelsCities, 100, "City");
+                }
+            }
+
+            // Draw queued labels with collision detection & clustering
+            if (!s_QueuedLabels.empty()) {
+                // Sort by priority descending (highest priority first)
+                std::sort(s_QueuedLabels.begin(), s_QueuedLabels.end(), [](const QueuedLabel& a, const QueuedLabel& b) {
+                    return a.priority > b.priority;
+                });
+
+                // Helper to check bounding box overlaps
+                auto Overlaps = [](const QueuedLabel& a, const ImVec2& aSize, const QueuedLabel& b, const ImVec2& bSize) -> bool {
+                    float paddingX = 8.0f;
+                    float paddingY = 4.0f;
+                    return (a.pos.x - paddingX < b.pos.x + bSize.x && a.pos.x + aSize.x + paddingX > b.pos.x &&
+                            a.pos.y - paddingY < b.pos.y + bSize.y && a.pos.y + aSize.y + paddingY > b.pos.y);
+                };
+
+                struct LabelCluster {
+                    int leadIdx;
+                    std::vector<int> memberIdxs;
+                };
+
+                std::vector<LabelCluster> clusters;
+                std::vector<ImVec2> textSizes(s_QueuedLabels.size());
+                for (size_t i = 0; i < s_QueuedLabels.size(); ++i) {
+                    textSizes[i] = ImGui::GetFont()->CalcTextSizeA(s_QueuedLabels[i].size, FLT_MAX, 0.0f, s_QueuedLabels[i].text.c_str());
+                }
+
+                for (size_t i = 0; i < s_QueuedLabels.size(); ++i) {
+                    bool joined = false;
+                    for (auto& cluster : clusters) {
+                        int lead = cluster.leadIdx;
+                        if (Overlaps(s_QueuedLabels[lead], textSizes[lead], s_QueuedLabels[i], textSizes[i])) {
+                            cluster.memberIdxs.push_back((int)i);
+                            joined = true;
+                            break;
+                        }
+                    }
+                    if (!joined) {
+                        LabelCluster newCluster;
+                        newCluster.leadIdx = (int)i;
+                        clusters.push_back(newCluster);
+                    }
+                }
+
+                // Render clusters
+                for (const auto& cluster : clusters) {
+                    int lead = cluster.leadIdx;
+                    const auto& label = s_QueuedLabels[lead];
+                    ImVec2 pos = label.pos;
+                    ImVec2 size = textSizes[lead];
+
+                    // Draw lead label text
+                    drawList->AddText(ImGui::GetFont(), label.size, pos, label.color, label.text.c_str());
+
+                    float indicatorWidth = 0.0f;
+                    bool hasIndicator = !cluster.memberIdxs.empty();
+                    if (hasIndicator) {
+                        // Draw yellow [+] indicator next to the lead text
+                        char indText[16];
+                        snprintf(indText, sizeof(indText), " [+%d]", (int)cluster.memberIdxs.size());
+                        ImVec2 indPos = ImVec2(pos.x + size.x + 2.0f, pos.y);
+                        float indSize = label.size;
+                        ImVec2 indTextSize = ImGui::GetFont()->CalcTextSizeA(indSize, FLT_MAX, 0.0f, indText);
+                        indicatorWidth = indTextSize.x + 4.0f;
+                        drawList->AddText(ImGui::GetFont(), indSize, indPos, IM_COL32(255, 220, 0, 245), indText);
+                    }
+
+                    // Check hover on lead label + indicator bounding box
+                    ImVec2 totalSize = ImVec2(size.x + indicatorWidth, size.y);
+                    bool isHovered = hovered &&
+                                     io.MousePos.x >= pos.x && io.MousePos.x <= pos.x + totalSize.x &&
+                                     io.MousePos.y >= pos.y && io.MousePos.y <= pos.y + totalSize.y;
+
+                    if (isHovered && hasIndicator) {
+                        ImGui::BeginTooltip();
+                        ImGui::TextColored(ImVec4(1.0f, 0.8f, 0.0f, 1.0f), "CONGESTED AREA - OVERLAPPING LAYERS:");
+                        ImGui::Separator();
+                        
+                        // Lead label
+                        ImVec4 colLead = ImGui::ColorConvertU32ToFloat4(label.color);
+                        ImGui::TextColored(colLead, "[%s] %s", label.layerName.c_str(), label.text.c_str());
+
+                        // Members
+                        for (int idx : cluster.memberIdxs) {
+                            const auto& mb = s_QueuedLabels[idx];
+                            ImVec4 col = ImGui::ColorConvertU32ToFloat4(mb.color);
+                            ImGui::TextColored(col, "[%s] %s", mb.layerName.c_str(), mb.text.c_str());
+                        }
+                        ImGui::EndTooltip();
+                    }
                 }
             }
 
