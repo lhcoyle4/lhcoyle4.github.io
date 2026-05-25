@@ -324,6 +324,32 @@ void OpenGitHubLink(const std::string& url) {
 #endif
 }
 
+#include <iomanip>
+#include <cctype>
+
+// Helper to URL encode query parameters
+std::string UrlEncode(const std::string& value) {
+    std::ostringstream escaped;
+    escaped << std::hex;
+    for (char c : value) {
+        if (isalnum((unsigned char)c) || c == '-' || c == '_' || c == '.' || c == '~') {
+            escaped << c;
+        } else if (c == ' ') {
+            escaped << '+';
+        } else {
+            escaped << '%' << std::uppercase << std::setw(2) << std::setfill('0') << (int)(unsigned char)c;
+        }
+    }
+    return escaped.str();
+}
+
+// Trigger Google Search in a new tab
+void SearchGoogle(const std::string& name) {
+    std::string query = UrlEncode(name);
+    std::string url = "https://www.google.com/search?q=" + query;
+    OpenGitHubLink(url);
+}
+
 // Custom style
 void SetupRetroStyle() {
     ImGuiStyle& style = ImGui::GetStyle();
@@ -2448,18 +2474,32 @@ int main(int, char**)
                     const auto& sub = US_Substations[i];
                     ImVec2 p = ProjectLonLat(sub.lon, sub.lat, canvasCenter, g_MapScale, g_MapOffset);
                     
-                    if (p.x < canvasPos.x - 3.0f || p.x > canvasPos.x + canvasSize.x + 3.0f ||
-                        p.y < canvasPos.y - 3.0f || p.y > canvasPos.y + canvasSize.y + 3.0f) {
+                    if (p.x < canvasPos.x - 4.0f || p.x > canvasPos.x + canvasSize.x + 4.0f ||
+                        p.y < canvasPos.y - 4.0f || p.y > canvasPos.y + canvasSize.y + 4.0f) {
                         continue;
                     }
                     
-                    drawList->AddLine(ImVec2(p.x - 3, p.y), ImVec2(p.x + 3, p.y), IM_COL32(0, 220, 220, 180), 1.0f);
-                    drawList->AddLine(ImVec2(p.x, p.y - 3), ImVec2(p.x, p.y + 3), IM_COL32(0, 220, 220, 180), 1.0f);
+                    // Transmission tower primitive shape (indicates substation location)
+                    ImU32 subColor = IM_COL32(0, 220, 220, 180);
+                    // Left leg: top to bottom-left
+                    drawList->AddLine(ImVec2(p.x, p.y - 4.0f), ImVec2(p.x - 2.5f, p.y + 4.0f), subColor, 1.0f);
+                    // Right leg: top to bottom-right
+                    drawList->AddLine(ImVec2(p.x, p.y - 4.0f), ImVec2(p.x + 2.5f, p.y + 4.0f), subColor, 1.0f);
+                    // Horizontal structural beams:
+                    drawList->AddLine(ImVec2(p.x - 1.25f, p.y), ImVec2(p.x + 1.25f, p.y), subColor, 1.0f);
+                    drawList->AddLine(ImVec2(p.x - 2.2f, p.y + 2.5f), ImVec2(p.x + 2.2f, p.y + 2.5f), subColor, 1.0f);
+                    // Top cross-arm hanger:
+                    drawList->AddLine(ImVec2(p.x - 3.0f, p.y - 1.5f), ImVec2(p.x + 3.0f, p.y - 1.5f), subColor, 1.0f);
                     
                     float dx = io.MousePos.x - p.x;
                     float dy = io.MousePos.y - p.y;
-                    if (hovered && sqrtf(dx * dx + dy * dy) < 4.0f) {
-                        ImGui::SetTooltip("%s", sub.name);
+                    bool isHovered = hovered && (sqrtf(dx * dx + dy * dy) < 5.0f);
+                    if (isHovered) {
+                        ImGui::SetTooltip("%s\nClick to search on Google.", sub.name);
+                        // Prevent click action during click-and-drag panning using MouseDragMaxDistanceSqr
+                        if (ImGui::IsMouseReleased(ImGuiMouseButton_Left) && io.MouseDragMaxDistanceSqr[0] < 16.0f) {
+                            SearchGoogle(std::string(sub.name));
+                        }
                     }
                     
                     QueueScaledLabel(ImVec2(p.x + 6, p.y - 4), IM_COL32(0, 180, 180, 150), sub.name, 22.0f, g_ShowLabelsSubstations, 60, "Substation");
@@ -2472,11 +2512,13 @@ int main(int, char**)
                     const auto& pp = US_PowerStations[i];
                     ImVec2 p = ProjectLonLat(pp.lon, pp.lat, canvasCenter, g_MapScale, g_MapOffset);
                     
-                    float radius = 2.5f + sqrtf(pp.capacity) * 0.08f;
-                    if (radius > 9.0f) radius = 9.0f;
+                    // Capacity scale factor (larger capacity = slightly larger icon, scaled down overall)
+                    float scale = 0.5f + sqrtf(pp.capacity) * 0.012f;
+                    if (scale > 1.3f) scale = 1.3f;
+                    float radius = 4.0f * scale;
                     
-                    if (p.x < canvasPos.x - radius || p.x > canvasPos.x + canvasSize.x + radius ||
-                        p.y < canvasPos.y - radius || p.y > canvasPos.y + canvasSize.y + radius) {
+                    if (p.x < canvasPos.x - radius - 2.0f || p.x > canvasPos.x + canvasSize.x + radius + 2.0f ||
+                        p.y < canvasPos.y - radius - 5.0f || p.y > canvasPos.y + canvasSize.y + radius + 2.0f) {
                         continue;
                     }
                     
@@ -2485,19 +2527,35 @@ int main(int, char**)
                     else if (strcmp(pp.fuel, "HYC") == 0 || strcmp(pp.fuel, "WAT") == 0) color = IM_COL32(0, 150, 255, 200); // Hydro: Blue
                     else if (strcmp(pp.fuel, "COL") == 0) color = IM_COL32(180, 100, 255, 200); // Coal: Purple
                     
-                    drawList->AddCircleFilled(p, radius, color);
-                    drawList->AddCircle(p, radius + 2.0f, IM_COL32(0, 255, 100, 80), 8, 1.0f);
+                    // Draw factory/power plant with smokestack primitive
+                    // Main building block
+                    drawList->AddRectFilled(ImVec2(p.x - 4.0f * scale, p.y - 1.0f * scale), ImVec2(p.x + 1.5f * scale, p.y + 4.0f * scale), color);
+                    // Chimney/smokestack
+                    drawList->AddRectFilled(ImVec2(p.x + 1.5f * scale, p.y - 4.0f * scale), ImVec2(p.x + 3.0f * scale, p.y + 4.0f * scale), color);
+                    
+                    // Dark borders to make primitives pop
+                    drawList->AddRect(ImVec2(p.x - 4.0f * scale, p.y - 1.0f * scale), ImVec2(p.x + 1.5f * scale, p.y + 4.0f * scale), IM_COL32(0, 0, 0, 200), 0.0f, 0, 1.0f);
+                    drawList->AddRect(ImVec2(p.x + 1.5f * scale, p.y - 4.0f * scale), ImVec2(p.x + 3.0f * scale, p.y + 4.0f * scale), IM_COL32(0, 0, 0, 200), 0.0f, 0, 1.0f);
+                    
+                    // Smoke puff plume coming from smokestack
+                    ImU32 smokeColor = IM_COL32(220, 220, 220, 160);
+                    drawList->AddCircleFilled(ImVec2(p.x + 2.25f * scale, p.y - 5.5f * scale), 1.3f * scale, smokeColor);
                     
                     float dx = io.MousePos.x - p.x;
                     float dy = io.MousePos.y - p.y;
-                    if (hovered && sqrtf(dx * dx + dy * dy) < radius + 2.0f) {
-                        ImGui::SetTooltip("%s\nFuel: %s | Capacity: %.1f MW", pp.name, pp.fuel, pp.capacity);
+                    bool isHovered = hovered && (dx >= -4.0f * scale && dx <= 3.0f * scale && dy >= -6.0f * scale && dy <= 4.0f * scale);
+                    if (isHovered) {
+                        ImGui::SetTooltip("%s\nFuel: %s | Capacity: %.1f MW\nClick to search on Google.", pp.name, pp.fuel, pp.capacity);
+                        // Prevent click action during click-and-drag panning using MouseDragMaxDistanceSqr
+                        if (ImGui::IsMouseReleased(ImGuiMouseButton_Left) && io.MouseDragMaxDistanceSqr[0] < 16.0f) {
+                            SearchGoogle(std::string(pp.name) + " Power Station");
+                        }
                     }
                     
                     if (g_MapScale >= 15.0f) {
                         char labelText[128];
                         snprintf(labelText, sizeof(labelText), "%s (%.0f MW)", pp.name, pp.capacity);
-                        QueueScaledLabel(ImVec2(p.x + radius + 4, p.y - 4), color, labelText, 15.0f, g_ShowLabelsPowerPlants, 70, "Power Plant");
+                        QueueScaledLabel(ImVec2(p.x + 3.0f * scale + 4.0f, p.y - 4.0f), color, labelText, 15.0f, g_ShowLabelsPowerPlants, 70, "Power Plant");
                     }
                 }
             }
