@@ -757,96 +757,92 @@ int main(int, char**)
             ImGui::Spacing();
             ImGui::TextColored(ImVec4(1.0f, 0.8f, 0.0f, 1.0f), "USGS Map Layer Controls");
             ImGui::Separator();
-            ImGui::Checkbox("Show Map Labels", &g_ShowLabels);
+            bool prevShowLabels = g_ShowLabels;
+            if (ImGui::Checkbox("Show Map Labels", &g_ShowLabels)) {
+                if (g_ShowLabels != prevShowLabels) {
+                    g_ShowLabelsWorld = g_ShowLabels;
+                    g_ShowLabelsStates = g_ShowLabels;
+                    g_ShowLabelsHighways = g_ShowLabels;
+                    g_ShowLabelsUSHighways = g_ShowLabels;
+                    g_ShowLabelsRailways = g_ShowLabels;
+                    g_ShowLabelsPowerPlants = g_ShowLabels;
+                    g_ShowLabelsSubstations = g_ShowLabels;
+                    g_ShowLabelsPipelines = g_ShowLabels;
+                    g_ShowLabelsEnergyCorridors = g_ShowLabels;
+                    g_ShowLabelsLakes = g_ShowLabels;
+                    g_ShowLabelsCities = g_ShowLabels;
+                    g_ShowLabelsContours = g_ShowLabels;
+                }
+            }
             ImGui::Checkbox("Show National Boundary", &g_ShowBoundary);
             
             ImGui::Checkbox("Show World Countries", &g_ShowWorld);
             if (g_ShowWorld) {
                 ImGui::Indent(15.0f);
-                ImGui::BeginDisabled(!g_ShowLabels);
                 ImGui::Checkbox("World Labels", &g_ShowLabelsWorld);
-                ImGui::EndDisabled();
                 ImGui::Unindent(15.0f);
             }
             
             ImGui::Checkbox("Show State Borders", &g_ShowStates);
             if (g_ShowStates) {
                 ImGui::Indent(15.0f);
-                ImGui::BeginDisabled(!g_ShowLabels);
                 ImGui::Checkbox("State Labels", &g_ShowLabelsStates);
-                ImGui::EndDisabled();
                 ImGui::Unindent(15.0f);
             }
             
             ImGui::Checkbox("Show Hydrography (Lakes & Rivers)", &g_ShowLakes);
             if (g_ShowLakes) {
                 ImGui::Indent(15.0f);
-                ImGui::BeginDisabled(!g_ShowLabels);
                 ImGui::Checkbox("Hydrography Labels", &g_ShowLabelsLakes);
-                ImGui::EndDisabled();
                 ImGui::Unindent(15.0f);
             }
             
             ImGui::Checkbox("Show Roads (Interstates)", &g_ShowHighways);
             if (g_ShowHighways) {
                 ImGui::Indent(15.0f);
-                ImGui::BeginDisabled(!g_ShowLabels);
                 ImGui::Checkbox("Interstate Labels", &g_ShowLabelsHighways);
-                ImGui::EndDisabled();
                 ImGui::Unindent(15.0f);
             }
             
             ImGui::Checkbox("Show Secondary Highways", &g_ShowUSHighways);
             if (g_ShowUSHighways) {
                 ImGui::Indent(15.0f);
-                ImGui::BeginDisabled(!g_ShowLabels);
                 ImGui::Checkbox("Secondary Hwy Labels", &g_ShowLabelsUSHighways);
-                ImGui::EndDisabled();
                 ImGui::Unindent(15.0f);
             }
             
             ImGui::Checkbox("Show Railroads", &g_ShowRailways);
             if (g_ShowRailways) {
                 ImGui::Indent(15.0f);
-                ImGui::BeginDisabled(!g_ShowLabels);
                 ImGui::Checkbox("Railroad Labels", &g_ShowLabelsRailways);
-                ImGui::EndDisabled();
                 ImGui::Unindent(15.0f);
             }
             
             ImGui::Checkbox("Show Power Stations", &g_ShowPowerPlants);
             if (g_ShowPowerPlants) {
                 ImGui::Indent(15.0f);
-                ImGui::BeginDisabled(!g_ShowLabels);
                 ImGui::Checkbox("Power Station Labels", &g_ShowLabelsPowerPlants);
-                ImGui::EndDisabled();
                 ImGui::Unindent(15.0f);
             }
             
             ImGui::Checkbox("Show Grid Substations", &g_ShowSubstations);
             if (g_ShowSubstations) {
                 ImGui::Indent(15.0f);
-                ImGui::BeginDisabled(!g_ShowLabels);
                 ImGui::Checkbox("Substation Labels", &g_ShowLabelsSubstations);
-                ImGui::EndDisabled();
                 ImGui::Unindent(15.0f);
             }
             
             ImGui::Checkbox("Show Gas & Oil Pipelines", &g_ShowPipelines);
             if (g_ShowPipelines) {
                 ImGui::Indent(15.0f);
-                ImGui::BeginDisabled(!g_ShowLabels);
                 ImGui::Checkbox("Pipeline Labels", &g_ShowLabelsPipelines);
-                ImGui::EndDisabled();
                 ImGui::Unindent(15.0f);
             }
             
             ImGui::Checkbox("Show HV Energy Corridors", &g_ShowEnergyCorridors);
             if (g_ShowEnergyCorridors) {
                 ImGui::Indent(15.0f);
-                ImGui::BeginDisabled(!g_ShowLabels);
                 ImGui::Checkbox("Corridor Labels", &g_ShowLabelsEnergyCorridors);
-                ImGui::EndDisabled();
                 ImGui::Unindent(15.0f);
             }
             
@@ -855,20 +851,21 @@ int main(int, char**)
             ImGui::Checkbox("Show USGS Stations (Cities)", &g_ShowCities);
             if (g_ShowCities) {
                 ImGui::Indent(15.0f);
-                ImGui::BeginDisabled(!g_ShowLabels);
                 ImGui::Checkbox("Station Labels", &g_ShowLabelsCities);
-                ImGui::EndDisabled();
                 ImGui::Unindent(15.0f);
             }
             
             ImGui::Checkbox("Show Topographic Contours", &g_ShowContours);
             if (g_ShowContours) {
                 ImGui::Indent(15.0f);
-                ImGui::BeginDisabled(!g_ShowLabels);
                 ImGui::Checkbox("Contour Labels", &g_ShowLabelsContours);
-                ImGui::EndDisabled();
                 ImGui::Unindent(15.0f);
             }
+
+            g_ShowLabels = (g_ShowLabelsWorld || g_ShowLabelsStates || g_ShowLabelsHighways ||
+                            g_ShowLabelsUSHighways || g_ShowLabelsRailways || g_ShowLabelsPowerPlants ||
+                            g_ShowLabelsSubstations || g_ShowLabelsPipelines || g_ShowLabelsEnergyCorridors ||
+                            g_ShowLabelsLakes || g_ShowLabelsCities || g_ShowLabelsContours);
 
             ImGui::Spacing();
             ImGui::TextColored(ImVec4(1.0f, 0.8f, 0.0f, 1.0f), "Selected Station Telemetry");
