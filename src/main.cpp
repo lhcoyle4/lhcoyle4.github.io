@@ -39,6 +39,13 @@ struct Project {
     std::string asciiArt;
 };
 
+struct MapCity {
+    std::string name;
+    float lon;
+    float lat;
+    std::string desc;
+};
+
 // Global variables
 std::vector<LogLine> g_ConsoleLog;
 char g_InputBuf[256] = "";
@@ -55,6 +62,59 @@ std::vector<float> g_NetworkHistory;
 auto g_StartTime = std::chrono::steady_clock::now();
 bool g_MatrixMode = false;
 int g_MatrixTimer = 0;
+
+// Map Coordinates for USA National Map Viewer
+const float US_Border_Lon[] = {
+    -124.7f, -124.4f, -124.0f, -124.3f, -120.6f, -117.2f, // West coast
+    -114.8f, -111.0f, -108.2f, -106.5f, -104.9f, -99.5f,  -97.1f, // Mexico border
+    -97.2f,  -93.9f,  -89.9f,  -88.0f,  -83.6f,  -81.8f,          // Gulf coast & Florida key
+    -80.0f,  -81.1f,  -78.5f,  -75.5f,  -76.0f,  -74.0f,  -70.0f,  -69.7f, -67.0f, // East coast
+    -67.8f,  -71.5f,  -74.9f,  -75.2f,  -79.0f,  -83.0f,  -84.0f,  -89.5f, -95.0f, -95.1f, -120.0f, -124.7f // Canada border
+};
+const float US_Border_Lat[] = {
+    48.4f,  46.2f,  42.0f,  40.4f,  34.4f,  32.5f,
+    32.5f,  31.3f,  31.3f,  29.5f,  29.5f,  26.0f,  26.0f,
+    28.2f,  29.7f,  30.2f,  30.3f,  29.1f,  24.5f,
+    26.8f,  32.0f,  33.8f,  35.2f,  37.0f,  40.5f,  41.5f,  44.4f,  44.8f,
+    47.2f,  45.0f,  45.0f,  44.2f,  43.0f,  42.0f,  46.5f,  48.0f,  49.3f,  49.0f,  49.0f,  48.4f
+};
+const int US_Border_Count = sizeof(US_Border_Lon) / sizeof(float);
+
+const float Lake_Superior_Lon[] = { -92.1f, -90.0f, -87.0f, -88.0f, -92.1f };
+const float Lake_Superior_Lat[] = { 46.7f,  48.0f,  46.5f,  46.0f,  46.7f };
+const int Lake_Superior_Count = sizeof(Lake_Superior_Lon) / sizeof(float);
+
+const float Lake_Michigan_Huron_Lon[] = { -87.0f, -84.0f, -82.0f, -83.0f, -87.0f, -88.0f, -87.0f };
+const float Lake_Michigan_Huron_Lat[] = { 46.0f,  46.0f,  44.0f,  43.0f,  41.8f,  44.0f,  46.0f };
+const int Lake_Michigan_Huron_Count = sizeof(Lake_Michigan_Huron_Lon) / sizeof(float);
+
+const float Lake_Erie_Ontario_Lon[] = { -83.0f, -80.0f, -76.0f, -77.0f, -80.0f, -83.0f };
+const float Lake_Erie_Ontario_Lat[] = { 42.0f,  42.2f,  44.0f,  43.5f,  43.5f,  42.0f };
+const int Lake_Erie_Ontario_Count = sizeof(Lake_Erie_Ontario_Lon) / sizeof(float);
+
+const float Appalachian_Lon[] = { -82.0f, -80.0f, -76.0f, -72.0f };
+const float Appalachian_Lat[] = { 35.0f,  38.0f,  41.0f,  44.0f };
+const int Appalachian_Count = sizeof(Appalachian_Lon) / sizeof(float);
+
+const float Rockies_Lon_1[] = { -115.0f, -110.0f, -112.0f, -118.0f };
+const float Rockies_Lat_1[] = { 35.0f,   40.0f,   44.0f,   48.0f };
+const int Rockies_Count_1 = sizeof(Rockies_Lon_1) / sizeof(float);
+
+const float Rockies_Lon_2[] = { -106.0f, -105.0f, -108.0f, -112.0f };
+const float Rockies_Lat_2[] = { 35.0f,   40.0f,   45.0f,   47.0f };
+const int Rockies_Count_2 = sizeof(Rockies_Lon_2) / sizeof(float);
+
+// Map viewer state
+std::vector<MapCity> g_MapCities;
+float g_MapScale = 8.0f;
+ImVec2 g_MapOffset = ImVec2(0.0f, 0.0f);
+bool g_ShowBoundary = true;
+bool g_ShowLakes = true;
+bool g_ShowCities = true;
+bool g_ShowContours = true;
+bool g_ShowGrid = true;
+int g_SelectedCity = 0; // Default: Portland, ME
+
 
 // Log function
 void AddLog(const std::string& text, ImVec4 color = ImVec4(0.2f, 1.0f, 0.2f, 1.0f)) {
@@ -193,6 +253,21 @@ void InitializeProjects() {
         "   _  \n  (o\\  <-- (Ostrich Mount)\n   \\ \\_ \n   /_/  \n  // \\\\  "
     });
 }
+
+// Populate GIS map cities
+void InitializeMapData() {
+    g_MapCities.push_back({ "Portland, ME", -70.25f, 43.66f, "Louie's Base Station. RTK drone mapping active, storm surge models running. Status: ONLINE." });
+    g_MapCities.push_back({ "Seattle, WA", -122.33f, 47.60f, "USGS Station NW-1. LiDAR elevation grid processed. Status: ACTIVE." });
+    g_MapCities.push_back({ "San Francisco, CA", -122.42f, 37.77f, "USGS Station SW-2. Crustal deformation GPS tracking active. Status: ACTIVE." });
+    g_MapCities.push_back({ "Los Angeles, CA", -118.24f, 34.05f, "USGS Station SW-1. Water table and aquifer telemetry. Status: NOMINAL." });
+    g_MapCities.push_back({ "Denver, CO", -104.99f, 39.73f, "USGS Station CO-1. Mountain snowpack & runoff models active. Status: ACTIVE." });
+    g_MapCities.push_back({ "Houston, TX", -95.36f, 29.76f, "USGS Station S-1. Gulf storm warning and drainage grid. Status: STANDBY." });
+    g_MapCities.push_back({ "Chicago, IL", -87.62f, 41.87f, "USGS Station MW-1. Lake Michigan water level sensors online. Status: NOMINAL." });
+    g_MapCities.push_back({ "Miami, FL", -80.19f, 25.76f, "USGS Station SE-1. Everglades NDVI rewilding study. Status: ACTIVE." });
+    g_MapCities.push_back({ "New York, NY", -74.00f, 40.71f, "USGS Station E-1. Estuary tide level monitoring. Status: NOMINAL." });
+    g_MapCities.push_back({ "Washington, DC", -77.03f, 38.90f, "National Map HQ. Central server catalog synced. Status: ONLINE." });
+}
+
 
 // Terminal commands execution logic
 void ExecuteCommand(const std::string& cmdLine) {
@@ -401,6 +476,7 @@ int main(int, char**)
 
     // Load initial structures
     InitializeProjects();
+    InitializeMapData();
     
     // Set up radar pins (coordinates in Portland, ME region)
     g_RadarPins.push_back(ImVec2(100, 100)); // Portland Downtown
@@ -662,6 +738,27 @@ int main(int, char**)
             }
             
             ImGui::Spacing();
+            ImGui::TextColored(ImVec4(1.0f, 0.8f, 0.0f, 1.0f), "USGS Map Layer Controls");
+            ImGui::Separator();
+            ImGui::Checkbox("Show National Boundary", &g_ShowBoundary);
+            ImGui::Checkbox("Show Hydrography (Lakes)", &g_ShowLakes);
+            ImGui::Checkbox("Show USGS Telemetry Grid", &g_ShowGrid);
+            ImGui::Checkbox("Show USGS Stations (Cities)", &g_ShowCities);
+            ImGui::Checkbox("Show Topographic Contours", &g_ShowContours);
+
+            ImGui::Spacing();
+            ImGui::TextColored(ImVec4(1.0f, 0.8f, 0.0f, 1.0f), "Selected Station Telemetry");
+            ImGui::Separator();
+            if (g_SelectedCity >= 0 && g_SelectedCity < (int)g_MapCities.size()) {
+                const auto& city = g_MapCities[g_SelectedCity];
+                ImGui::TextColored(ImVec4(0.0f, 1.0f, 1.0f, 1.0f), "%s", city.name.c_str());
+                ImGui::Text("Coordinates: %.2f N, %.2f W", city.lat, -city.lon);
+                ImGui::TextWrapped("%s", city.desc.c_str());
+            } else {
+                ImGui::TextDisabled("No station selected. Click a station pin on the map to query telemetry.");
+            }
+
+            ImGui::Spacing();
             ImGui::Separator();
             if (ImGui::Button("View Full GIS Map Portfolio Repo", ImVec2(-FLT_MIN, 40.0f))) {
                 OpenGitHubLink("https://github.com/lhcoyle4/gis-portfolio");
@@ -670,67 +767,202 @@ int main(int, char**)
 
             ImGui::SameLine();
 
-            // Interactive vector radar visualization panel
-            ImGui::BeginChild("GisRadar", ImVec2(0, 0), true);
-            ImGui::TextColored(ImVec4(0.0f, 1.0f, 0.5f, 1.0f), "USGS GPS TELEMETRY & COORDINATE PING ACTIVE");
-            ImGui::Separator();
-
-            // Draw a spinning radar grid using ImGui DrawList!
+            // Interactive National Map Viewer panel
+            ImGui::BeginChild("GisMapViewer", ImVec2(0, 0), true);
+            
             ImDrawList* drawList = ImGui::GetWindowDrawList();
             ImVec2 canvasPos = ImGui::GetCursorScreenPos();
             ImVec2 canvasSize = ImGui::GetContentRegionAvail();
             
-            float radarRadius = std::min(canvasSize.x, canvasSize.y) * 0.45f;
-            ImVec2 radarCenter = ImVec2(canvasPos.x + canvasSize.x * 0.5f, canvasPos.y + canvasSize.y * 0.5f);
+            // Map coordinate projection lambda (Equirectangular with Y inversion and aspect correction)
+            auto ProjectLonLat = [&](float lon, float lat, ImVec2 center, float scale, ImVec2 offset) -> ImVec2 {
+                float x = (lon - (-96.0f)) * scale + offset.x + center.x;
+                float y = -(lat - 37.0f) * scale * 1.35f + offset.y + center.y;
+                return ImVec2(x, y);
+            };
 
-            // Background radar circles
-            drawList->AddCircle(radarCenter, radarRadius, IM_COL32(0, 150, 0, 50), 32, 1.0f);
-            drawList->AddCircle(radarCenter, radarRadius * 0.66f, IM_COL32(0, 150, 0, 40), 32, 1.0f);
-            drawList->AddCircle(radarCenter, radarRadius * 0.33f, IM_COL32(0, 150, 0, 30), 32, 1.0f);
+            // Drawing line segment-by-segment (independent of ImGui version flags)
+            auto DrawMapLine = [&](const float* lons, const float* lats, int count, ImU32 color, float thickness, bool closed, ImVec2 center) {
+                if (count < 2) return;
+                for (int i = 0; i < count - 1; ++i) {
+                    ImVec2 p1 = ProjectLonLat(lons[i], lats[i], center, g_MapScale, g_MapOffset);
+                    ImVec2 p2 = ProjectLonLat(lons[i+1], lats[i+1], center, g_MapScale, g_MapOffset);
+                    drawList->AddLine(p1, p2, color, thickness);
+                }
+                if (closed) {
+                    ImVec2 p1 = ProjectLonLat(lons[count-1], lats[count-1], center, g_MapScale, g_MapOffset);
+                    ImVec2 p2 = ProjectLonLat(lons[0], lats[0], center, g_MapScale, g_MapOffset);
+                    drawList->AddLine(p1, p2, color, thickness);
+                }
+            };
+
+            ImVec2 canvasCenter = ImVec2(canvasPos.x + canvasSize.x * 0.5f, canvasPos.y + canvasSize.y * 0.5f);
+
+            // Bounding box for mouse input checks
+            bool hovered = ImGui::IsWindowHovered();
             
-            // Grid lines
-            drawList->AddLine(ImVec2(radarCenter.x - radarRadius, radarCenter.y), ImVec2(radarCenter.x + radarRadius, radarCenter.y), IM_COL32(0, 150, 0, 60));
-            drawList->AddLine(ImVec2(radarCenter.x, radarCenter.y - radarRadius), ImVec2(radarCenter.x, radarCenter.y + radarRadius), IM_COL32(0, 150, 0, 60));
-
-            // Spin sweep line
-            g_RadarAngle += 0.02f;
-            float lineX = radarRadius * cosf(g_RadarAngle);
-            float lineY = radarRadius * sinf(g_RadarAngle);
-            drawList->AddLine(radarCenter, ImVec2(radarCenter.x + lineX, radarCenter.y + lineY), IM_COL32(0, 255, 50, 200), 2.0f);
-
-            // Shaded sweep wedge
-            for (int i = 0; i < 30; i++) {
-                float trailAngle = g_RadarAngle - i * 0.015f;
-                float tx = radarRadius * cosf(trailAngle);
-                float ty = radarRadius * sinf(trailAngle);
-                drawList->AddLine(radarCenter, ImVec2(radarCenter.x + tx, radarCenter.y + ty), IM_COL32(0, 200, 50, (255 - i * 8)));
+            // Mouse Dragging to Pan Map
+            if (hovered && ImGui::IsMouseDragging(ImGuiMouseButton_Left)) {
+                g_MapOffset.x += io.MouseDelta.x;
+                g_MapOffset.y += io.MouseDelta.y;
             }
 
-            // Radar coordinates pins
-            for (size_t i = 0; i < g_RadarPins.size(); ++i) {
-                // Scale coordinates to fit radar circle
-                float px = radarCenter.x + (g_RadarPins[i].x - 100.0f) * (radarRadius / 100.0f);
-                float py = radarCenter.y + (g_RadarPins[i].y - 100.0f) * (radarRadius / 100.0f);
+            // Mouse Wheel to Zoom Map (Focusing on cursor coordinates)
+            if (hovered && io.MouseWheel != 0.0f) {
+                float zoomFactor = 1.15f;
+                if (io.MouseWheel < 0.0f) zoomFactor = 0.85f;
+                ImVec2 mousePos = io.MousePos;
                 
-                // Animate alpha based on radar rotation
-                float angleToPin = atan2f(py - radarCenter.y, px - radarCenter.x);
-                if (angleToPin < 0) angleToPin += 2.0f * 3.14159f;
-                float currentSweepAngle = fmodf(g_RadarAngle, 2.0f * 3.14159f);
-                float diff = fmodf(currentSweepAngle - angleToPin + 2.0f * 3.14159f, 2.0f * 3.14159f);
+                ImVec2 mapMouse = ImVec2((mousePos.x - canvasCenter.x - g_MapOffset.x) / g_MapScale, 
+                                         (mousePos.y - canvasCenter.y - g_MapOffset.y) / g_MapScale);
                 
-                int alpha = 0;
-                if (diff < 1.0f) {
-                    alpha = (int)(255 * (1.0f - diff));
-                } else {
-                    alpha = 40; // faint glow
-                }
+                g_MapScale *= zoomFactor;
+                if (g_MapScale < 2.0f) g_MapScale = 2.0f;
+                if (g_MapScale > 120.0f) g_MapScale = 120.0f;
+                
+                g_MapOffset.x = mousePos.x - canvasCenter.x - mapMouse.x * g_MapScale;
+                g_MapOffset.y = mousePos.y - canvasCenter.y - mapMouse.y * g_MapScale;
+            }
 
-                drawList->AddCircleFilled(ImVec2(px, py), 5.0f, IM_COL32(0, 255, 30, alpha));
-                drawList->AddCircle(ImVec2(px, py), 9.0f, IM_COL32(0, 255, 30, alpha / 2), 16, 1.0f);
+            // Push clipping rect so map rendering stays strictly within canvas bounds
+            drawList->PushClipRect(canvasPos, ImVec2(canvasPos.x + canvasSize.x, canvasPos.y + canvasSize.y), true);
+
+            // Draw grid lines
+            if (g_ShowGrid) {
+                // Lines of longitude (-120 to -70 every 10 degrees)
+                for (float lon = -120.0f; lon <= -70.0f; lon += 10.0f) {
+                    ImVec2 p1 = ProjectLonLat(lon, 24.0f, canvasCenter, g_MapScale, g_MapOffset);
+                    ImVec2 p2 = ProjectLonLat(lon, 50.0f, canvasCenter, g_MapScale, g_MapOffset);
+                    drawList->AddLine(p1, p2, IM_COL32(0, 100, 0, 45), 1.0f);
+                    
+                    // Draw label near top
+                    char label[32];
+                    snprintf(label, sizeof(label), "%.0f W", -lon);
+                    drawList->AddText(ImVec2(p2.x + 4, p2.y + 4), IM_COL32(0, 120, 0, 100), label);
+                }
+                // Lines of latitude (25 to 50 every 5 degrees)
+                for (float lat = 25.0f; lat <= 50.0f; lat += 5.0f) {
+                    ImVec2 p1 = ProjectLonLat(-125.0f, lat, canvasCenter, g_MapScale, g_MapOffset);
+                    ImVec2 p2 = ProjectLonLat(-65.0f, lat, canvasCenter, g_MapScale, g_MapOffset);
+                    drawList->AddLine(p1, p2, IM_COL32(0, 100, 0, 45), 1.0f);
+                    
+                    // Draw label near left edge
+                    char label[32];
+                    snprintf(label, sizeof(label), "%.0f N", lat);
+                    drawList->AddText(ImVec2(p1.x + 4, p1.y - 12), IM_COL32(0, 120, 0, 100), label);
+                }
+            }
+
+            // Draw topographic contours (Appalachians and Rockies lines)
+            if (g_ShowContours) {
+                DrawMapLine(Appalachian_Lon, Appalachian_Lat, Appalachian_Count, IM_COL32(0, 160, 0, 80), 1.5f, false, canvasCenter);
+                DrawMapLine(Rockies_Lon_1, Rockies_Lat_1, Rockies_Count_1, IM_COL32(0, 160, 0, 80), 1.5f, false, canvasCenter);
+                DrawMapLine(Rockies_Lon_2, Rockies_Lat_2, Rockies_Count_2, IM_COL32(0, 160, 0, 80), 1.5f, false, canvasCenter);
+                
+                // Draw text descriptors near ridges
+                ImVec2 appCenter = ProjectLonLat(-77.0f, 40.0f, canvasCenter, g_MapScale, g_MapOffset);
+                drawList->AddText(appCenter, IM_COL32(0, 180, 0, 90), "CONTOUR 1000m");
+                
+                ImVec2 rockCenter = ProjectLonLat(-110.0f, 42.0f, canvasCenter, g_MapScale, g_MapOffset);
+                drawList->AddText(rockCenter, IM_COL32(0, 180, 0, 90), "CONTOUR 3000m");
+            }
+
+            // Draw hydrography lakes
+            if (g_ShowLakes) {
+                DrawMapLine(Lake_Superior_Lon, Lake_Superior_Lat, Lake_Superior_Count, IM_COL32(0, 120, 150, 180), 1.5f, true, canvasCenter);
+                DrawMapLine(Lake_Michigan_Huron_Lon, Lake_Michigan_Huron_Lat, Lake_Michigan_Huron_Count, IM_COL32(0, 120, 150, 180), 1.5f, true, canvasCenter);
+                DrawMapLine(Lake_Erie_Ontario_Lon, Lake_Erie_Ontario_Lat, Lake_Erie_Ontario_Count, IM_COL32(0, 120, 150, 180), 1.5f, true, canvasCenter);
+            }
+
+            // Draw national borders
+            if (g_ShowBoundary) {
+                DrawMapLine(US_Border_Lon, US_Border_Lat, US_Border_Count, IM_COL32(0, 255, 30, 220), 2.5f, true, canvasCenter);
+            }
+
+            // Draw cities (USGS stations)
+            if (g_ShowCities) {
+                for (size_t i = 0; i < g_MapCities.size(); ++i) {
+                    const auto& city = g_MapCities[i];
+                    ImVec2 p = ProjectLonLat(city.lon, city.lat, canvasCenter, g_MapScale, g_MapOffset);
+                    
+                    bool isSelected = ((int)i == g_SelectedCity);
+                    ImU32 dotColor = isSelected ? IM_COL32(255, 200, 0, 255) : IM_COL32(0, 255, 30, 255);
+                    ImU32 ringColor = isSelected ? IM_COL32(255, 200, 0, 180) : IM_COL32(0, 255, 30, 120);
+
+                    // Draw pin
+                    drawList->AddCircleFilled(p, isSelected ? 5.5f : 4.0f, dotColor);
+                    drawList->AddCircle(p, isSelected ? 9.0f : 7.0f, ringColor, 16, 1.0f);
+                    
+                    // Hover detection
+                    float dx = io.MousePos.x - p.x;
+                    float dy = io.MousePos.y - p.y;
+                    if (hovered && sqrtf(dx * dx + dy * dy) < 9.0f) {
+                        ImGui::SetTooltip("%s\nClick to select station.", city.name.c_str());
+                        if (ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
+                            g_SelectedCity = (int)i;
+                        }
+                    }
+
+                    // Label offset text
+                    drawList->AddText(ImVec2(p.x + 10, p.y - 7), isSelected ? IM_COL32(255, 220, 0, 240) : IM_COL32(0, 240, 50, 190), city.name.c_str());
+                }
+            }
+
+            // Pop clipping rect
+            drawList->PopClipRect();
+
+            // Draw HUD Info Overlays (Floating inside canvas)
+            
+            // 1. Compass Rose (Top Right)
+            ImVec2 compassCenter = ImVec2(canvasPos.x + canvasSize.x - 45.0f, canvasPos.y + 45.0f);
+            drawList->AddCircle(compassCenter, 20.0f, IM_COL32(0, 255, 30, 100), 16, 1.0f);
+            drawList->AddLine(ImVec2(compassCenter.x, compassCenter.y + 15.0f), ImVec2(compassCenter.x, compassCenter.y - 15.0f), IM_COL32(0, 255, 30, 150), 1.5f);
+            drawList->AddLine(ImVec2(compassCenter.x - 15.0f, compassCenter.y), ImVec2(compassCenter.x + 15.0f, compassCenter.y), IM_COL32(0, 255, 30, 100), 1.0f);
+            drawList->AddTriangleFilled(ImVec2(compassCenter.x - 4, compassCenter.y - 5), ImVec2(compassCenter.x + 4, compassCenter.y - 5), ImVec2(compassCenter.x, compassCenter.y - 17), IM_COL32(0, 255, 50, 220));
+            drawList->AddText(ImVec2(compassCenter.x - 3, compassCenter.y - 32), IM_COL32(0, 255, 30, 200), "N");
+
+            // 2. Cursor Lat/Lon Telemetry (Bottom Left)
+            float mouseLon = (io.MousePos.x - canvasCenter.x - g_MapOffset.x) / g_MapScale + (-96.0f);
+            float mouseLat = -(io.MousePos.y - canvasCenter.y - g_MapOffset.y) / (g_MapScale * 1.35f) + 37.0f;
+            
+            char telemetryText[64];
+            if (hovered && io.MousePos.x >= canvasPos.x && io.MousePos.x <= canvasPos.x + canvasSize.x &&
+                io.MousePos.y >= canvasPos.y && io.MousePos.y <= canvasPos.y + canvasSize.y) {
+                snprintf(telemetryText, sizeof(telemetryText), "CURSOR: %.4f N, %.4f W", mouseLat, -mouseLon);
+            } else {
+                snprintf(telemetryText, sizeof(telemetryText), "CURSOR: OUT OF BOUNDS");
+            }
+            drawList->AddText(ImVec2(canvasPos.x + 15.0f, canvasPos.y + canvasSize.y - 30.0f), IM_COL32(0, 255, 30, 220), telemetryText);
+
+            // 3. Dynamic Map Scale Bar (Bottom Left, above coordinates)
+            float scaleDegrees = 10.0f; // 10 degrees Longitude at 38N (~550 miles)
+            float scaleBarPx = scaleDegrees * g_MapScale;
+            ImVec2 barStart = ImVec2(canvasPos.x + 15.0f, canvasPos.y + canvasSize.y - 55.0f);
+            drawList->AddLine(barStart, ImVec2(barStart.x + scaleBarPx, barStart.y), IM_COL32(0, 255, 30, 200), 2.0f);
+            drawList->AddLine(barStart, ImVec2(barStart.x, barStart.y - 5.0f), IM_COL32(0, 255, 30, 200), 2.0f);
+            drawList->AddLine(ImVec2(barStart.x + scaleBarPx, barStart.y), ImVec2(barStart.x + scaleBarPx, barStart.y - 5.0f), IM_COL32(0, 255, 30, 200), 2.0f);
+            drawList->AddText(ImVec2(barStart.x + scaleBarPx + 8.0f, barStart.y - 8.0f), IM_COL32(0, 255, 30, 180), "550 mi");
+
+            // 4. Manual Zoom / Reset buttons Overlay (Bottom Right)
+            ImGui::SetCursorScreenPos(ImVec2(canvasPos.x + canvasSize.x - 180.0f, canvasPos.y + canvasSize.y - 45.0f));
+            if (ImGui::Button("[+]", ImVec2(35, 30))) {
+                g_MapScale *= 1.25f;
+                if (g_MapScale > 120.0f) g_MapScale = 120.0f;
+            }
+            ImGui::SameLine();
+            if (ImGui::Button("[-]", ImVec2(35, 30))) {
+                g_MapScale *= 0.8f;
+                if (g_MapScale < 2.0f) g_MapScale = 2.0f;
+            }
+            ImGui::SameLine();
+            if (ImGui::Button("Reset", ImVec2(55, 30))) {
+                g_MapScale = 8.0f;
+                g_MapOffset = ImVec2(0.0f, 0.0f);
             }
 
             ImGui::EndChild();
         }
+
         else if (g_ActiveTab == 3) {
             // ==========================================
             // TAB 3: DIAGNOSTICS & SYSTEM METRICS
