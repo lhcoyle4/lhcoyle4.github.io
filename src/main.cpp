@@ -3275,6 +3275,16 @@ int main(int, char**)
             };
 
             // Drawing line segment-by-segment with viewport clipping
+            // Fill a closed polygon with a flat color (used for lake interiors)
+            auto DrawMapFill = [&](const float* lons, const float* lats, int count, ImU32 fillColor, ImVec2 center) {
+                if (count < 3) return;
+                std::vector<ImVec2> pts;
+                pts.reserve(count);
+                for (int i = 0; i < count; ++i)
+                    pts.push_back(ProjectLonLat(lons[i], lats[i], center, g_MapScale, g_MapOffset));
+                drawList->AddConvexPolyFilled(pts.data(), (int)pts.size(), fillColor);
+            };
+
             auto DrawMapLine = [&](const float* lons, const float* lats, int count, ImU32 color, float thickness, bool closed, ImVec2 center) {
                 if (count < 2) return;
                 for (int i = 0; i < count - 1; ++i) {
@@ -3505,13 +3515,24 @@ int main(int, char**)
 
             // Draw hydrography lakes and rivers
             if (g_ShowLakes) {
-                // Draw detailed lakes
+                // Water blue palette
+                // Outline: a clear mid-tone water blue
+                // Fill:    same hue, much more transparent (lets the map show through)
+                constexpr ImU32 LAKE_OUTLINE = IM_COL32( 45, 130, 215, 220);
+                constexpr ImU32 LAKE_FILL    = IM_COL32( 45, 130, 215,  55);
+                constexpr ImU32 RIVER_COLOR  = IM_COL32( 55, 140, 220, 180);
+                constexpr ImU32 HYDRO_LABEL  = IM_COL32( 80, 170, 230, 200);
+
+                // Draw detailed lakes — fill first, then outline on top
                 for (int i = 0; i < US_Lakes_Count; ++i) {
                     const auto& lake = US_Lakes[i];
                     for (int p = 0; p < lake.part_count; ++p) {
                         const auto& part = US_Lakes_Parts[lake.part_start + p];
-                        DrawMapLine(&US_Lakes_Lon[part.start_index], &US_Lakes_Lat[part.start_index], part.count, IM_COL32(0, 220, 120, 200), 2.2f, true, canvasCenter);
-                        
+                        // Transparent fill (enclosed polygon)
+                        DrawMapFill(&US_Lakes_Lon[part.start_index], &US_Lakes_Lat[part.start_index], part.count, LAKE_FILL, canvasCenter);
+                        // Outline
+                        DrawMapLine(&US_Lakes_Lon[part.start_index], &US_Lakes_Lat[part.start_index], part.count, LAKE_OUTLINE, 2.2f, true, canvasCenter);
+
                         bool isLakeHovered = hovered && IsMouseNearLine(&US_Lakes_Lon[part.start_index], &US_Lakes_Lat[part.start_index], part.count, canvasCenter, 4.0f, true);
                         if (isLakeHovered) {
                             ImGui::SetTooltip("[Lake] %s\nClick to get AI Overview details.", lake.name);
@@ -3521,14 +3542,14 @@ int main(int, char**)
                         }
                     }
                 }
-                
+
                 // Draw high-resolution major rivers
                 for (int i = 0; i < US_Rivers_Count; ++i) {
                     const auto& river = US_Rivers[i];
                     for (int p = 0; p < river.part_count; ++p) {
                         const auto& part = US_Rivers_Parts[river.part_start + p];
-                        DrawMapLine(&US_Rivers_Lon[part.start_index], &US_Rivers_Lat[part.start_index], part.count, IM_COL32(0, 200, 100, 180), 1.8f, false, canvasCenter);
-                        
+                        DrawMapLine(&US_Rivers_Lon[part.start_index], &US_Rivers_Lat[part.start_index], part.count, RIVER_COLOR, 1.8f, false, canvasCenter);
+
                         bool isRiverHovered = hovered && IsMouseNearLine(&US_Rivers_Lon[part.start_index], &US_Rivers_Lat[part.start_index], part.count, canvasCenter, 4.0f, false);
                         if (isRiverHovered) {
                             ImGui::SetTooltip("[River] %s\nClick to get AI Overview details.", river.name);
@@ -3541,10 +3562,10 @@ int main(int, char**)
 
                 // River/Lake text labels
                 ImVec2 supCenter = ProjectLonLat(-88.5f, 47.5f, canvasCenter, g_MapScale, g_MapOffset);
-                QueueScaledLabel(supCenter, IM_COL32(0, 200, 120, 180), "L. SUPERIOR", 4.0f, g_ShowLabelsLakes, 50, "Lake");
+                QueueScaledLabel(supCenter, HYDRO_LABEL, "L. SUPERIOR", 4.0f, g_ShowLabelsLakes, 50, "Lake");
 
                 ImVec2 missCenter = ProjectLonLat(-90.5f, 35.1f, canvasCenter, g_MapScale, g_MapOffset);
-                QueueScaledLabel(missCenter, IM_COL32(0, 200, 120, 180), "MISSISSIPPI R.", 5.0f, g_ShowLabelsLakes, 50, "River");
+                QueueScaledLabel(missCenter, HYDRO_LABEL, "MISSISSIPPI R.", 5.0f, g_ShowLabelsLakes, 50, "River");
             }
 
             // Draw state borders
