@@ -65,22 +65,6 @@ auto g_StartTime = std::chrono::steady_clock::now();
 bool g_MatrixMode = false;
 int g_MatrixTimer = 0;
 
-// Map Coordinates for USA National Map Viewer
-const float US_Border_Lon[] = {
-    -124.7f, -124.4f, -124.0f, -124.3f, -120.6f, -117.2f, // West coast
-    -114.8f, -111.0f, -108.2f, -106.5f, -104.9f, -99.5f,  -97.1f, // Mexico border
-    -97.2f,  -93.9f,  -89.9f,  -88.0f,  -83.6f,  -81.8f,          // Gulf coast & Florida key
-    -80.0f,  -81.1f,  -78.5f,  -75.5f,  -76.0f,  -74.0f,  -70.0f,  -69.7f, -67.0f, // East coast
-    -67.8f,  -71.5f,  -74.9f,  -75.2f,  -79.0f,  -83.0f,  -84.0f,  -89.5f, -95.0f, -95.1f, -120.0f, -124.7f // Canada border
-};
-const float US_Border_Lat[] = {
-    48.4f,  46.2f,  42.0f,  40.4f,  34.4f,  32.5f,
-    32.5f,  31.3f,  31.3f,  29.5f,  29.5f,  26.0f,  26.0f,
-    28.2f,  29.7f,  30.2f,  30.3f,  29.1f,  24.5f,
-    26.8f,  32.0f,  33.8f,  35.2f,  37.0f,  40.5f,  41.5f,  44.4f,  44.8f,
-    47.2f,  45.0f,  45.0f,  44.2f,  43.0f,  42.0f,  46.5f,  48.0f,  49.3f,  49.0f,  49.0f,  48.4f
-};
-const int US_Border_Count = sizeof(US_Border_Lon) / sizeof(float);
 
 const float Lake_Superior_Lon[] = { -92.1f, -90.0f, -87.0f, -88.0f, -92.1f };
 const float Lake_Superior_Lat[] = { 46.7f,  48.0f,  46.5f,  46.0f,  46.7f };
@@ -120,9 +104,16 @@ std::vector<MapCity> g_MapCities;
 float g_MapScale = 8.0f;
 ImVec2 g_MapOffset = ImVec2(0.0f, 0.0f);
 bool g_ShowBoundary = true;
+bool g_ShowWorld = false;
 bool g_ShowStates = true;
 bool g_ShowLakes = true;
 bool g_ShowHighways = true;
+bool g_ShowUSHighways = false;
+bool g_ShowRailways = true;
+bool g_ShowPowerPlants = true;
+bool g_ShowSubstations = true;
+bool g_ShowPipelines = true;
+bool g_ShowEnergyCorridors = true;
 bool g_ShowCities = true;
 bool g_ShowContours = true;
 bool g_ShowGrid = true;
@@ -754,9 +745,16 @@ int main(int, char**)
             ImGui::TextColored(ImVec4(1.0f, 0.8f, 0.0f, 1.0f), "USGS Map Layer Controls");
             ImGui::Separator();
             ImGui::Checkbox("Show National Boundary", &g_ShowBoundary);
+            ImGui::Checkbox("Show World Countries", &g_ShowWorld);
             ImGui::Checkbox("Show State Borders", &g_ShowStates);
             ImGui::Checkbox("Show Hydrography (Lakes & Rivers)", &g_ShowLakes);
             ImGui::Checkbox("Show Roads (Interstates)", &g_ShowHighways);
+            ImGui::Checkbox("Show Secondary Highways", &g_ShowUSHighways);
+            ImGui::Checkbox("Show Railroads", &g_ShowRailways);
+            ImGui::Checkbox("Show Power Stations", &g_ShowPowerPlants);
+            ImGui::Checkbox("Show Grid Substations", &g_ShowSubstations);
+            ImGui::Checkbox("Show Gas & Oil Pipelines", &g_ShowPipelines);
+            ImGui::Checkbox("Show HV Energy Corridors", &g_ShowEnergyCorridors);
             ImGui::Checkbox("Show USGS Telemetry Grid", &g_ShowGrid);
             ImGui::Checkbox("Show USGS Stations (Cities)", &g_ShowCities);
             ImGui::Checkbox("Show Topographic Contours", &g_ShowContours);
@@ -816,8 +814,11 @@ int main(int, char**)
             // Bounding box for mouse input checks
             bool hovered = ImGui::IsWindowHovered();
             
-            // Mouse Dragging to Pan Map (ignore if interacting with buttons)
-            if (hovered && !ImGui::IsAnyItemActive() && ImGui::IsMouseDragging(ImGuiMouseButton_Left)) {
+            // Mouse Dragging to Pan Map (Left, Right, or Middle click drag - RTS-style panning)
+            if (hovered && !ImGui::IsAnyItemActive() && 
+                (ImGui::IsMouseDragging(ImGuiMouseButton_Left) || 
+                 ImGui::IsMouseDragging(ImGuiMouseButton_Right) || 
+                 ImGui::IsMouseDragging(ImGuiMouseButton_Middle))) {
                 g_MapOffset.x += io.MouseDelta.x;
                 g_MapOffset.y += io.MouseDelta.y;
             }
@@ -868,6 +869,17 @@ int main(int, char**)
                 }
             }
 
+            // Draw world countries (rest of map of planet)
+            if (g_ShowWorld) {
+                for (int i = 0; i < World_Countries_Count; ++i) {
+                    const auto& country = World_Countries[i];
+                    for (int p = 0; p < country.part_count; ++p) {
+                        const auto& part = World_Countries_Parts[country.part_start + p];
+                        DrawMapLine(&World_Countries_Lon[part.start_index], &World_Countries_Lat[part.start_index], part.count, IM_COL32(0, 100, 0, 35), 0.8f, true, canvasCenter);
+                    }
+                }
+            }
+
             // Draw topographic contours (High-resolution Appalachians, Rockies, Cascades, Sierras)
             if (g_ShowContours) {
                 for (int i = 0; i < US_Contours_Count; ++i) {
@@ -885,16 +897,21 @@ int main(int, char**)
 
             // Draw hydrography lakes and rivers
             if (g_ShowLakes) {
-                DrawMapLine(Lake_Superior_Lon, Lake_Superior_Lat, Lake_Superior_Count, IM_COL32(0, 120, 150, 180), 1.5f, true, canvasCenter);
-                DrawMapLine(Lake_Michigan_Huron_Lon, Lake_Michigan_Huron_Lat, Lake_Michigan_Huron_Count, IM_COL32(0, 120, 150, 180), 1.5f, true, canvasCenter);
-                DrawMapLine(Lake_Erie_Ontario_Lon, Lake_Erie_Ontario_Lat, Lake_Erie_Ontario_Count, IM_COL32(0, 120, 150, 180), 1.5f, true, canvasCenter);
+                // Draw detailed lakes
+                for (int i = 0; i < US_Lakes_Count; ++i) {
+                    const auto& lake = US_Lakes[i];
+                    for (int p = 0; p < lake.part_count; ++p) {
+                        const auto& part = US_Lakes_Parts[lake.part_start + p];
+                        DrawMapLine(&US_Lakes_Lon[part.start_index], &US_Lakes_Lat[part.start_index], part.count, IM_COL32(0, 100, 150, 140), 1.3f, true, canvasCenter);
+                    }
+                }
                 
                 // Draw high-resolution major rivers
                 for (int i = 0; i < US_Rivers_Count; ++i) {
                     const auto& river = US_Rivers[i];
                     for (int p = 0; p < river.part_count; ++p) {
                         const auto& part = US_Rivers_Parts[river.part_start + p];
-                        DrawMapLine(&US_Rivers_Lon[part.start_index], &US_Rivers_Lat[part.start_index], part.count, IM_COL32(0, 120, 150, 130), 1.3f, false, canvasCenter);
+                        DrawMapLine(&US_Rivers_Lon[part.start_index], &US_Rivers_Lat[part.start_index], part.count, IM_COL32(0, 100, 150, 120), 1.2f, false, canvasCenter);
                     }
                 }
 
@@ -925,9 +942,85 @@ int main(int, char**)
                 }
             }
 
-            // Draw national borders
+            // Draw secondary roads (US Highways)
+            if (g_ShowUSHighways) {
+                for (int i = 0; i < US_SecondaryHighways_Count; ++i) {
+                    const auto& hw = US_SecondaryHighways[i];
+                    DrawMapLine(&US_SecondaryHighways_Lon[hw.start_index], &US_SecondaryHighways_Lat[hw.start_index], hw.count, IM_COL32(0, 160, 40, 60), 0.9f, false, canvasCenter);
+                }
+            }
+
+            // Draw railroads
+            if (g_ShowRailways) {
+                for (int i = 0; i < US_Railways_Count; ++i) {
+                    const auto& rr = US_Railways[i];
+                    DrawMapLine(&US_Railways_Lon[rr.start_index], &US_Railways_Lat[rr.start_index], rr.count, IM_COL32(0, 240, 200, 80), 1.1f, false, canvasCenter);
+                }
+            }
+
+            // Draw gas/oil pipelines
+            if (g_ShowPipelines) {
+                for (int i = 0; i < US_Pipelines_Count; ++i) {
+                    const auto& pl = US_Pipelines[i];
+                    DrawMapLine(&US_Pipelines_Lon[pl.start_index], &US_Pipelines_Lat[pl.start_index], pl.count, IM_COL32(0, 150, 200, 85), 1.2f, false, canvasCenter);
+                }
+            }
+
+            // Draw energy corridors (HV transmission lines)
+            if (g_ShowEnergyCorridors) {
+                for (int i = 0; i < US_EnergyCorridors_Count; ++i) {
+                    const auto& ec = US_EnergyCorridors[i];
+                    DrawMapLine(&US_EnergyCorridors_Lon[ec.start_index], &US_EnergyCorridors_Lat[ec.start_index], ec.count, IM_COL32(0, 220, 220, 110), 1.3f, false, canvasCenter);
+                }
+            }
+
+            // Draw substations
+            if (g_ShowSubstations) {
+                for (int i = 0; i < US_Substations_Count; ++i) {
+                    const auto& sub = US_Substations[i];
+                    ImVec2 p = ProjectLonLat(sub.lon, sub.lat, canvasCenter, g_MapScale, g_MapOffset);
+                    drawList->AddLine(ImVec2(p.x - 3, p.y), ImVec2(p.x + 3, p.y), IM_COL32(0, 220, 220, 180), 1.0f);
+                    drawList->AddLine(ImVec2(p.x, p.y - 3), ImVec2(p.x, p.y + 3), IM_COL32(0, 220, 220, 180), 1.0f);
+                    
+                    float dx = io.MousePos.x - p.x;
+                    float dy = io.MousePos.y - p.y;
+                    if (hovered && sqrtf(dx * dx + dy * dy) < 4.0f) {
+                        ImGui::SetTooltip("%s", sub.name);
+                    }
+                }
+            }
+
+            // Draw power stations
+            if (g_ShowPowerPlants) {
+                for (int i = 0; i < US_PowerStations_Count; ++i) {
+                    const auto& pp = US_PowerStations[i];
+                    ImVec2 p = ProjectLonLat(pp.lon, pp.lat, canvasCenter, g_MapScale, g_MapOffset);
+                    
+                    ImU32 color = IM_COL32(0, 255, 100, 200); // Default NG/Gas: Light Green
+                    if (strcmp(pp.fuel, "NUC") == 0) color = IM_COL32(255, 100, 0, 220); // Nuclear: Orange
+                    else if (strcmp(pp.fuel, "HYC") == 0 || strcmp(pp.fuel, "WAT") == 0) color = IM_COL32(0, 150, 255, 200); // Hydro: Blue
+                    else if (strcmp(pp.fuel, "COL") == 0) color = IM_COL32(180, 100, 255, 200); // Coal: Purple
+                    
+                    float radius = 2.5f + sqrtf(pp.capacity) * 0.08f;
+                    if (radius > 9.0f) radius = 9.0f;
+                    
+                    drawList->AddCircleFilled(p, radius, color);
+                    drawList->AddCircle(p, radius + 2.0f, IM_COL32(0, 255, 100, 80), 8, 1.0f);
+                    
+                    float dx = io.MousePos.x - p.x;
+                    float dy = io.MousePos.y - p.y;
+                    if (hovered && sqrtf(dx * dx + dy * dy) < radius + 2.0f) {
+                        ImGui::SetTooltip("%s\nFuel: %s | Capacity: %.1f MW", pp.name, pp.fuel, pp.capacity);
+                    }
+                }
+            }
+
+            // Draw national borders (Detailed 50m outline)
             if (g_ShowBoundary) {
-                DrawMapLine(US_Border_Lon, US_Border_Lat, US_Border_Count, IM_COL32(0, 255, 30, 220), 2.5f, true, canvasCenter);
+                for (int i = 0; i < US_Border_Parts_Count; ++i) {
+                    const auto& part = US_Border_Parts[i];
+                    DrawMapLine(&US_Border_Lon[part.start_index], &US_Border_Lat[part.start_index], part.count, IM_COL32(0, 255, 30, 220), 2.2f, true, canvasCenter);
+                }
             }
 
             // Draw cities (USGS stations)
