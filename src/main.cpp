@@ -49,54 +49,42 @@ static int g_NextTileId = 1;
 static bool g_ShowBasemap = true;
 
 #ifdef __EMSCRIPTEN__
-// JS side: fetch tile PNG, convert to raw RGBA bytes on WASM heap, call back into C++
+// JS side: fetch tile PNG, upload directly via WebGL context, store texId in Module._tileReady
+// Uses GL.textures so no EXPORTED_FUNCTIONS needed for malloc/free/callback
 EM_JS(void, js_request_tile, (int tileId, const char* url), {
+    if (!Module._tilePending) Module._tilePending = {};
+    if (!Module._tileReady)   Module._tileReady   = {};
+    if (Module._tilePending[tileId] || Module._tileReady[tileId] !== undefined) return;
+    Module._tilePending[tileId] = true;
     var tileUrl = UTF8ToString(url);
     fetch(tileUrl, {mode:'cors'})
         .then(function(r){ return r.blob(); })
         .then(function(b){ return createImageBitmap(b); })
         .then(function(bmp){
-            var w = bmp.width, h = bmp.height;
-            var cv = document.createElement('canvas');
-            cv.width = w; cv.height = h;
-            var cx = cv.getContext('2d');
-            cx.drawImage(bmp, 0, 0);
-            var id = cx.getImageData(0, 0, w, h);
-            var len = w * h * 4;
-            var ptr = Module._malloc(len);
-            Module.HEAPU8.set(id.data, ptr);
-            Module._js_tile_upload_pixels(tileId, ptr, w, h);
-            Module._free(ptr);
+            var ctx = GL.currentContext;
+            if (!ctx) { delete Module._tilePending[tileId]; Module._tileReady[tileId] = -1; return; }
+            var gl = ctx.GLctx;
+            var tex = gl.createTexture();
+            gl.bindTexture(gl.TEXTURE_2D, tex);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+            gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, bmp);
+            gl.bindTexture(gl.TEXTURE_2D, null);
+            var texId = GL.getNewId(GL.textures);
+            GL.textures[texId] = tex;
+            delete Module._tilePending[tileId];
+            Module._tileReady[tileId] = texId;
         })
-        .catch(function(){ Module._js_tile_upload_pixels(tileId, 0, 0, 0); });
+        .catch(function(){
+            delete Module._tilePending[tileId];
+            Module._tileReady[tileId] = -1;
+        });
 });
 #else
 void js_request_tile(int, const char*) {}
 #endif
-
-// Called from JS: creates an OpenGL texture from raw RGBA bytes on the heap
-extern "C" void js_tile_upload_pixels(int tileId, unsigned char* pixels, int w, int h) {
-    for (auto& kv : g_TileCache) {
-        TileData& td = kv.second;
-        if (td.id != tileId) continue;
-        if (pixels && w > 0 && h > 0) {
-            GLuint tex = 0;
-            glGenTextures(1, &tex);
-            glBindTexture(GL_TEXTURE_2D, tex);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-            glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, w, h, 0, GL_RGBA, GL_UNSIGNED_BYTE, pixels);
-            glBindTexture(GL_TEXTURE_2D, 0);
-            td.texId = tex;
-            td.loaded = true;
-        } else {
-            td.failed = true;
-        }
-        break;
-    }
-}
 
 // Tile math helpers (Web Mercator)
 static double TileLonMin(int tx, int z) { return tx / (double)(1 << z) * 360.0 - 180.0; }
@@ -3586,6 +3574,24 @@ int main(int, char**)
 
             // Push clipping rect so map rendering stays strictly within canvas bounds
             drawList->PushClipRect(canvasPos, ImVec2(canvasPos.x + canvasSize.x, canvasPos.y + canvasSize.y), true);
+
+            // ---- Poll JS for newly-loaded tiles ----
+#ifdef __EMSCRIPTEN__
+            for (auto& kv : g_TileCache) {
+                TileData& td = kv.second;
+                if (td.requested && !td.loaded && !td.failed) {
+                    int result = EM_ASM_INT({
+                        if (!Module._tileReady) return 0;
+                        var v = Module._tileReady[$0];
+                        if (v === undefined) return 0;
+                        delete Module._tileReady[$0];
+                        return v;
+                    }, td.id);
+                    if (result > 0)       { td.texId = (GLuint)result; td.loaded = true; }
+                    else if (result < 0)  { td.failed = true; }
+                }
+            }
+#endif
 
             // ---- Draw tile basemap (bottom-most layer) ----
             if (g_ShowBasemap) {
