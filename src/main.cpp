@@ -3768,7 +3768,7 @@ int main(int, char**)
                     int ptCount = 0;
                     for (int p = 0; p < state.part_count; ++p) {
                         const auto& part = US_States_Parts[state.part_start + p];
-                        DrawMapLine(&US_States_Lon[part.start_index], &US_States_Lat[part.start_index], part.count, IM_COL32(0, 150, 0, 75), 1.0f, true, canvasCenter);
+                        DrawMapLine(&US_States_Lon[part.start_index], &US_States_Lat[part.start_index], part.count, IM_COL32(0, 110, 0, 130), 1.6f, true, canvasCenter);
                         for (int pt = 0; pt < part.count; ++pt) {
                             sumLon += US_States_Lon[part.start_index + pt];
                             sumLat += US_States_Lat[part.start_index + pt];
