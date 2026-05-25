@@ -2410,9 +2410,11 @@ int main(int, char**)
             static std::vector<QueuedLabel> s_QueuedLabels;
             s_QueuedLabels.clear();
 
-            float fontScale = g_MapScale / 16.0f;
-            if (fontScale < 0.35f) fontScale = 0.35f;
-            if (fontScale > 1.5f) fontScale = 1.5f;
+            float fontScale = g_MapScale / 28.0f;
+            if (fontScale < 0.36f) fontScale = 0.36f;
+            if (fontScale > 0.85f) fontScale = 0.85f;
+
+            float iconScale = fontScale * 2.0f;
 
             auto QueueScaledLabel = [&](ImVec2 pos, ImU32 color, const char* text, float minScaleToShow, bool layerToggle, int priority, const char* layerName) {
                 if (!g_ShowLabels || !layerToggle) return;
@@ -2657,26 +2659,26 @@ int main(int, char**)
                     const auto& sub = US_Substations[i];
                     ImVec2 p = ProjectLonLat(sub.lon, sub.lat, canvasCenter, g_MapScale, g_MapOffset);
                     
-                    if (p.x < canvasPos.x - 4.0f || p.x > canvasPos.x + canvasSize.x + 4.0f ||
-                        p.y < canvasPos.y - 4.0f || p.y > canvasPos.y + canvasSize.y + 4.0f) {
+                    if (p.x < canvasPos.x - 6.0f * iconScale || p.x > canvasPos.x + canvasSize.x + 6.0f * iconScale ||
+                        p.y < canvasPos.y - 8.0f * iconScale || p.y > canvasPos.y + canvasSize.y + 8.0f * iconScale) {
                         continue;
                     }
                     
                     // Transmission tower primitive shape (indicates substation location)
                     ImU32 subColor = IM_COL32(0, 220, 220, 180);
                     // Left leg: top to bottom-left
-                    drawList->AddLine(ImVec2(p.x, p.y - 4.0f), ImVec2(p.x - 2.5f, p.y + 4.0f), subColor, 1.0f);
+                    drawList->AddLine(ImVec2(p.x, p.y - 7.0f * iconScale), ImVec2(p.x - 4.0f * iconScale, p.y + 7.0f * iconScale), subColor, 1.0f);
                     // Right leg: top to bottom-right
-                    drawList->AddLine(ImVec2(p.x, p.y - 4.0f), ImVec2(p.x + 2.5f, p.y + 4.0f), subColor, 1.0f);
+                    drawList->AddLine(ImVec2(p.x, p.y - 7.0f * iconScale), ImVec2(p.x + 4.0f * iconScale, p.y + 7.0f * iconScale), subColor, 1.0f);
                     // Horizontal structural beams:
-                    drawList->AddLine(ImVec2(p.x - 1.25f, p.y), ImVec2(p.x + 1.25f, p.y), subColor, 1.0f);
-                    drawList->AddLine(ImVec2(p.x - 2.2f, p.y + 2.5f), ImVec2(p.x + 2.2f, p.y + 2.5f), subColor, 1.0f);
+                    drawList->AddLine(ImVec2(p.x - 2.0f * iconScale, p.y), ImVec2(p.x + 2.0f * iconScale, p.y), subColor, 1.0f);
+                    drawList->AddLine(ImVec2(p.x - 3.0f * iconScale, p.y + 3.5f * iconScale), ImVec2(p.x + 3.0f * iconScale, p.y + 3.5f * iconScale), subColor, 1.0f);
                     // Top cross-arm hanger:
-                    drawList->AddLine(ImVec2(p.x - 3.0f, p.y - 1.5f), ImVec2(p.x + 3.0f, p.y - 1.5f), subColor, 1.0f);
+                    drawList->AddLine(ImVec2(p.x - 4.5f * iconScale, p.y - 2.5f * iconScale), ImVec2(p.x + 4.5f * iconScale, p.y - 2.5f * iconScale), subColor, 1.0f);
                     
                     float dx = io.MousePos.x - p.x;
                     float dy = io.MousePos.y - p.y;
-                    bool isHovered = hovered && (sqrtf(dx * dx + dy * dy) < 5.0f);
+                    bool isHovered = hovered && (dx >= -5.0f * iconScale && dx <= 5.0f * iconScale && dy >= -8.0f * iconScale && dy <= 8.0f * iconScale);
                     if (isHovered) {
                         ImGui::SetTooltip("%s\nClick to search on Google.", sub.name);
                         // Prevent click action during click-and-drag panning using MouseDragMaxDistanceSqr
@@ -2685,7 +2687,7 @@ int main(int, char**)
                         }
                     }
                     
-                    QueueScaledLabel(ImVec2(p.x + 6, p.y - 4), IM_COL32(0, 180, 180, 150), sub.name, 22.0f, g_ShowLabelsSubstations, 60, "Substation");
+                    QueueScaledLabel(ImVec2(p.x + 6.0f * iconScale + 2.0f, p.y - 5.0f * iconScale), IM_COL32(0, 180, 180, 150), sub.name, 22.0f, g_ShowLabelsSubstations, 60, "Substation");
                 }
             }
 
@@ -2695,10 +2697,10 @@ int main(int, char**)
                     const auto& pp = US_PowerStations[i];
                     ImVec2 p = ProjectLonLat(pp.lon, pp.lat, canvasCenter, g_MapScale, g_MapOffset);
                     
-                    // Capacity scale factor (larger capacity = slightly larger icon, scaled down overall)
-                    float scale = 0.5f + sqrtf(pp.capacity) * 0.012f;
-                    if (scale > 1.3f) scale = 1.3f;
-                    float radius = 4.0f * scale;
+                    // Capacity scale factor (larger capacity = slightly larger icon, scaled dynamically with zoom)
+                    float scale = (0.7f + sqrtf(pp.capacity) * 0.015f) * iconScale;
+                    if (scale > 2.2f) scale = 2.2f;
+                    float radius = 6.0f * scale;
                     
                     if (p.x < canvasPos.x - radius - 2.0f || p.x > canvasPos.x + canvasSize.x + radius + 2.0f ||
                         p.y < canvasPos.y - radius - 5.0f || p.y > canvasPos.y + canvasSize.y + radius + 2.0f) {
@@ -2738,7 +2740,7 @@ int main(int, char**)
                     if (g_MapScale >= 15.0f) {
                         char labelText[128];
                         snprintf(labelText, sizeof(labelText), "%s (%.0f MW)", pp.name, pp.capacity);
-                        QueueScaledLabel(ImVec2(p.x + 3.0f * scale + 4.0f, p.y - 4.0f), color, labelText, 15.0f, g_ShowLabelsPowerPlants, 70, "Power Plant");
+                        QueueScaledLabel(ImVec2(p.x + 3.5f * scale + 4.0f, p.y - 3.0f * scale), color, labelText, 15.0f, g_ShowLabelsPowerPlants, 70, "Power Plant");
                     }
                 }
             }
@@ -2760,9 +2762,8 @@ int main(int, char**)
                     bool isSelected = ((int)i == g_SelectedCity);
                     ImU32 dotColor = isSelected ? IM_COL32(255, 200, 0, 255) : IM_COL32(0, 255, 30, 255);
                     ImU32 ringColor = isSelected ? IM_COL32(255, 200, 0, 180) : IM_COL32(0, 255, 30, 120);
-
-                    // Draw antenna tower primitive
-                    float s = isSelected ? 1.3f : 0.9f;
+                    // Draw antenna tower primitive (scaled dynamically with zoom)
+                    float s = (isSelected ? 1.5f : 1.1f) * iconScale;
                     
                     // Draw base A-frame tower
                     drawList->AddLine(ImVec2(p.x - 3.0f * s, p.y + 5.0f * s), ImVec2(p.x, p.y - 3.0f * s), dotColor, 1.0f);
@@ -2790,9 +2791,9 @@ int main(int, char**)
                             SearchGoogle(city.name + " USGS Station");
                         }
                     }
-
-                    // Label offset text
-                    QueueScaledLabel(ImVec2(p.x + 10, p.y - 7), isSelected ? IM_COL32(255, 220, 0, 240) : IM_COL32(0, 240, 50, 190), city.name.c_str(), 0.0f, g_ShowLabelsCities, 100, "City");
+ 
+                    // Label offset text (scaled dynamically with icon scale to avoid overlap)
+                    QueueScaledLabel(ImVec2(p.x + 6.0f * s + 2.0f, p.y - 8.0f * s), isSelected ? IM_COL32(255, 220, 0, 240) : IM_COL32(0, 240, 50, 190), city.name.c_str(), 0.0f, g_ShowLabelsCities, 100, "City");
                 }
             }
 
