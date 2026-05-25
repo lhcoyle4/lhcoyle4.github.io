@@ -97,6 +97,14 @@ int g_ViSearchMatchIdx = -1;
 int g_ViScrollToLine = -1;
 bool g_FocusViInput = false;
 
+struct ViSearchMatch {
+    int line_idx;
+    int char_pos;
+};
+std::vector<ViSearchMatch> g_ViSearchMatches;
+int g_ViActiveMatchIdx = -1;
+
+
 // Tab Completion Globals
 std::string g_LastCompletedBuf = "";
 bool g_TabCompleting = false;
@@ -428,6 +436,19 @@ void SetupRetroStyle() {
 // Populate projects list
 void InitializeProjects() {
     g_Projects.push_back({
+        "alt_drag_resize", "Python",
+        "A background system tray Python application bringing Linux-style Alt+Click window moving and resizing to Windows.",
+        {
+            "Uses pynput keyboard/mouse listeners and win32gui window management.",
+            "Features automated task management to close windows with Ctrl+Alt+Q.",
+            "Includes startup shortcut generation script.",
+            "Tray icon integration using pystray and custom PIL-generated bitmaps."
+        },
+        "https://github.com/lhcoyle4/alt_drag_resize",
+        "  +-----------------+\n  | Python Alt-Drag |\n  |  (pynput/Win32) |\n  |   [System Tray] |\n  +-----------------+"
+    });
+
+    g_Projects.push_back({
         "alt_drag_resizer_C", "C++",
         "A lightweight, highly efficient Windows desktop utility that enables Linux-style 'Alt+Drag' window resizing and moving.",
         {
@@ -467,16 +488,18 @@ void InitializeProjects() {
     });
 
     g_Projects.push_back({
-        "asteroids_vectrex", "JS / C",
-        "A retro vector-graphics clone of the classic Asteroids arcade game, built for web and native environments.",
+        "PERMADRIFT", "C / SDL2",
+        "A roguelite Autodyne drift-ship survival game set in a dying-sun far-future. "
+        "Pilot through the Permasphere debris belt, collect relics, and achieve Chronicle.",
         {
-            "Simulates high-fidelity vector CRT glow effects.",
-            "Employs precise 2D collision geometry.",
-            "Smooth particle engines rendering asteroid fracturing.",
-            "Runs at a locked 60 FPS on basic processors."
+            "Procedurally generated asteroid fields with 30+ roguelite upgrade relics.",
+            "Authentic vector-CRT phosphor glow rendering via SDL2 software renderer.",
+            "Full controller (twin-stick + D-pad), mouse-aim, and rebindable keybinds.",
+            "Infinite freeroam world with camera tracking and screen-wrap physics.",
+            "Native Windows exe + WASM browser build via Emscripten CI pipeline."
         },
         "https://github.com/lhcoyle4/asteroids_vectrex",
-        "       /\\  *      \n  *   /  \\     +  \n     /____\\       \n   *   /\\   /\\  * \n      /  \\_/  \\   "
+        "    *  .  PERMADRIFT  .\n  .   /\\   *  .  *   .\n  *  /  \\  AUTODYNE  *\n    /____\\ .  *  .  *\n  *  DRIFT-SHIP  .  *\n  . PERMASPHERE  .   "
     });
 
     g_Projects.push_back({
@@ -490,6 +513,45 @@ void InitializeProjects() {
         },
         "https://github.com/lhcoyle4/joust_C",
         "   _  \n  (o\\  <-- (Ostrich Mount)\n   \\ \\_ \n   /_/  \n  // \\\\  "
+    });
+
+    g_Projects.push_back({
+        "motd", "Python",
+        "A beautiful, high-contrast, dynamic developer dashboard for Windows terminal shells (PowerShell, CMD, Bash) displaying system diagnostics, weather, git updates, and tasks.",
+        {
+            "Live system diagnostics (CPU, RAM, Disk) using psutil.",
+            "Weather reports pulled dynamically from wttr.in.",
+            "Scans workspace Git repositories to track dirty files, local commits, and remote syncing.",
+            "Implements a background process cache to maintain startup delays under 50ms."
+        },
+        "https://github.com/lhcoyle4/motd",
+        "  +-----------------+\n  |  [SYSTEM HEALTH]| \xE2\x9B\x85 Weather\n  |  CPU [\xE2\x96\x88\xE2\x96\x88\xE2\x96\x88\xE2\x96\x88\xE2\x96\x91\xE2\x96\x91\xE2\x96\x91]  | \xF0\x9F\x9\x83 Git Repos\n  |  RAM [\xE2\x96\x88\xE2\x96\x88\xE2\x96\x88\xE2\x96\x88\xE2\x96\x88\xE2\x96\x88\xE2\x96\x91]  | \xF0\x9F\x93\x9D Checklist\n  +-----------------+"
+    });
+
+    g_Projects.push_back({
+        "terminal_launcher", "Python / C++",
+        "A hybrid system tray keyboard hook service and configuration GUI that dispatches user shell environments instantly.",
+        {
+            "Combines keyboard hooks in Python (pynput) and C++ for sub-millisecond dispatching.",
+            "Built-in system tray integration via pystray and custom Win32 vector icons.",
+            "Parses JSON-configured global shortcuts to run custom executable paths.",
+            "Enables administrative elevation (-Verb RunAs) directly from shortcuts."
+        },
+        "https://github.com/lhcoyle4/terminal_launcher",
+        "  +-------------------+\n  | System Tray App   |\n  | [Ctrl+Alt+T]      |\n  |   --> launch CLI  |\n  | [Ctrl+Alt+/]      |\n  |   --> launch agy  |\n  +-------------------+"
+    });
+
+    g_Projects.push_back({
+        "lhcoyle4.github.io", "C++ / WASM",
+        "My personal homepage and developer portfolio, built entirely in C++ and compiled to WebAssembly (WASM).",
+        {
+            "Draws the user interface using Dear ImGui, rendering directly to a WebGL2 canvas.",
+            "Maintains zero runtime DOM dependencies for smooth 60 FPS painting.",
+            "Features a retro-themed console shell with custom virtual filesystem.",
+            "Visualizes dynamic system telemetry and custom GIS cartography maps."
+        },
+        "https://github.com/lhcoyle4/lhcoyle4.github.io",
+        "  +--------------------+\n  | Dear ImGui Canvas  |\n  | [WASM Bytecode]    |\n  |   --> WebGL2       |\n  |   --> 60 FPS Paint |\n  +--------------------+"
     });
 }
 
@@ -577,6 +639,80 @@ void InitializeVirtualFS() {
     projects.name = "projects";
     projects.is_dir = true;
 
+    // alt_drag_resize
+    {
+        FSNode dir;
+        dir.name = "alt_drag_resize";
+        dir.is_dir = true;
+
+        FSNode gitignore;
+        gitignore.name = ".gitignore";
+        gitignore.is_dir = false;
+        gitignore.content = "__pycache__/\n*.pyc\n";
+        dir.children.push_back(gitignore);
+
+        FSNode readme;
+        readme.name = "README.md";
+        readme.is_dir = false;
+        readme.content = "# Alt-Drag & Resize Tool for Windows\n\n"
+                         "This tool brings a popular Linux window management feature to Windows. It allows you to move and resize windows without having to find the title bar or corners.\n\n"
+                         "## How to use:\n"
+                         "- **Move a window:** Hold the `Alt` key and **Left-Click + Drag** anywhere inside a window.\n"
+                         "- **Resize a window:** Hold the `Alt` key and **Right-Click + Drag** anywhere inside a window.\n"
+                         "- **Exit:** Press `Alt + Shift + Q` or close the command window.";
+        dir.children.push_back(readme);
+
+        FSNode addStartup;
+        addStartup.name = "add_to_startup.py";
+        addStartup.is_dir = false;
+        addStartup.content = "import os, sys\n"
+                             "import winshell\n"
+                             "from win32com.client import Dispatch\n\n"
+                             "def create_startup_shortcut():\n"
+                             "    startup_path = winshell.startup()\n"
+                             "    shortcut_path = os.path.join(startup_path, 'AltDrag.lnk')\n"
+                             "    shell = Dispatch('WScript.Shell')\n"
+                             "    shortcut = shell.CreateShortCut(shortcut_path)\n"
+                             "    shortcut.Targetpath = sys.executable\n"
+                             "    shortcut.Arguments = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'main.py')\n"
+                             "    shortcut.WorkingDirectory = os.path.dirname(os.path.abspath(__file__))\n"
+                             "    shortcut.save()\n\n"
+                             "if __name__ == '__main__':\n"
+                             "    create_startup_shortcut()\n";
+        dir.children.push_back(addStartup);
+
+        FSNode mainPy;
+        mainPy.name = "main.py";
+        mainPy.is_dir = false;
+        mainPy.content = "import win32gui, win32api, win32con\n"
+                         "from pynput import mouse, keyboard\n"
+                         "import sys, os, threading\n"
+                         "import tkinter as tk\n"
+                         "from tkinter import messagebox\n"
+                         "from PIL import Image, ImageDraw\n"
+                         "import pystray\n\n"
+                         "class AltDragTool:\n"
+                         "    def __init__(self):\n"
+                         "        self.alt_pressed = False\n"
+                         "        self.dragging = False\n"
+                         "        self.resizing = False\n"
+                         "        self.target_hwnd = None\n\n"
+                         "    def run(self):\n"
+                         "        # Tray icon and listener threads setup\n"
+                         "        pass\n\n"
+                         "if __name__ == '__main__':\n"
+                         "    AltDragTool().run()";
+        dir.children.push_back(mainPy);
+
+        FSNode runBat;
+        runBat.name = "run.bat";
+        runBat.is_dir = false;
+        runBat.content = "@echo off\nstart /b pythonw.exe main.py\n";
+        dir.children.push_back(runBat);
+
+        projects.children.push_back(dir);
+    }
+
     // alt_drag_resizer_C
     {
         FSNode dir;
@@ -635,40 +771,61 @@ void InitializeVirtualFS() {
         dir.name = "terminal_launcher_C";
         dir.is_dir = true;
 
-        FSNode readme;
-        readme.name = "README.md";
-        readme.is_dir = false;
-        readme.content = "# terminal_launcher_C\n"
-                         "A hotkey-driven system tray application that launches configured shells and environments with sub-millisecond dispatching.\n\n"
-                         "## Key Features\n"
-                         "- Built with pure Win32 API, featuring custom vector-drawn system tray icon.\n"
-                         "- Asynchronous process spawning preserving window hierarchy.\n"
-                         "- Configuration scanner parsing global shortcuts from config.json.";
-        dir.children.push_back(readme);
+        FSNode gitignore;
+        gitignore.name = ".gitignore";
+        gitignore.is_dir = false;
+        gitignore.content = "*.exe\n";
+        dir.children.push_back(gitignore);
+
+        FSNode buildBat;
+        buildBat.name = "build.bat";
+        buildBat.is_dir = false;
+        buildBat.content = "@echo off\n"
+                           "echo Compiling Terminal Launcher...\n"
+                           "g++ -O3 -std=c++17 main.cpp -o TerminalLauncher.exe -luser32 -lshell32 -lgdi32 -ladvapi32 -mwindows -static\n";
+        dir.children.push_back(buildBat);
 
         FSNode configJson;
         configJson.name = "config.json";
         configJson.is_dir = false;
         configJson.content = "{\n"
-                             "  \"global_shortcuts\": [\n"
-                             "    {\n"
-                             "      \"hotkey\": \"Ctrl+Alt+T\",\n"
-                             "      \"command\": \"powershell.exe\",\n"
-                             "      \"working_directory\": \"C:\\\\Users\\\\lhcoy\"\n"
-                             "    },\n"
-                             "    {\n"
-                             "      \"hotkey\": \"Ctrl+Alt+C\",\n"
-                             "      \"command\": \"cmd.exe\",\n"
-                             "      \"working_directory\": \"C:\\\\\"\n"
-                             "    },\n"
-                             "    {\n"
-                             "      \"hotkey\": \"Ctrl+Alt+W\",\n"
-                             "      \"command\": \"wsl.exe\",\n"
-                             "      \"working_directory\": \"~\"\n"
+                             "    \"shortcuts\": {\n"
+                             "        \"<alt>+<ctrl>+u\": \"wsl\",\n"
+                             "        \"<alt>+<ctrl>+p\": \"powershell\",\n"
+                             "        \"<alt>+<ctrl>+c\": \"cmd\",\n"
+                             "        \"<alt>+<ctrl>+7\": \"pwsh\",\n"
+                             "        \"<alt>+<ctrl>+/\": \"pwsh -NoExit -Command agy\",\n"
+                             "        \"<alt>+<ctrl>+a\": \"pwsh -Verb RunAs\"\n"
                              "    }\n"
-                             "  ]\n"
-                             "}";
+                             "}\n";
         dir.children.push_back(configJson);
+
+        FSNode mainCpp;
+        mainCpp.name = "main.cpp";
+        mainCpp.is_dir = false;
+        mainCpp.content = "#define WIN32_LEAN_AND_MEAN\n"
+                          "#include <windows.h>\n"
+                          "#include <shellapi.h>\n"
+                          "#include <string>\n"
+                          "#include <vector>\n\n"
+                          "void LaunchCommand(std::string command) {\n"
+                          "    // Parses commands and launches them as admin/user relative to profile dir\n"
+                          "}\n\n"
+                          "void RegisterAllHotkeys(HWND hWnd) {\n"
+                          "    // Scans config.json shortcuts and binds global key hooks\n"
+                          "}\n\n"
+                          "int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {\n"
+                          "    // Singleton mutex guard and helper thread message queue\n"
+                          "    return 0;\n"
+                          "}";
+        dir.children.push_back(mainCpp);
+
+        FSNode launcherExe;
+        launcherExe.name = "TerminalLauncher.exe";
+        launcherExe.is_dir = false;
+        launcherExe.content = "[Binary Executable Data - Win32 background dispatcher]";
+        dir.children.push_back(launcherExe);
+
         projects.children.push_back(dir);
     }
 
@@ -678,45 +835,81 @@ void InitializeVirtualFS() {
         dir.name = "lens_ocr_C";
         dir.is_dir = true;
 
-        FSNode readme;
-        readme.name = "README.md";
-        readme.is_dir = false;
-        readme.content = "# lens_ocr_C\n"
-                         "A dual-process screen snipping OCR utility with seamless Google Search query integration.\n\n"
-                         "## Key Features\n"
-                         "- Handles high-performance screenshot capture in C++ using GDI+.\n"
-                         "- Orchestrates background Windows OCR runtime APIs in a C# sub-module.";
-        dir.children.push_back(readme);
+        FSNode gitignore;
+        gitignore.name = ".gitignore";
+        gitignore.is_dir = false;
+        gitignore.content = "*.exe\n";
+        dir.children.push_back(gitignore);
+
+        FSNode buildBat;
+        buildBat.name = "build.bat";
+        buildBat.is_dir = false;
+        buildBat.content = "@echo off\n"
+                           "echo Compiling OCR Helper using csc...\n"
+                           "powershell -Command \"csc.exe /r:System.dll /out:OcrHelper.exe OcrHelper.cs\"\n"
+                           "echo Compiling Lens OCR...\n"
+                           "g++ -O3 -std=c++17 main.cpp -o LensOcr.exe -luser32 -lshell32 -lgdi32 -ladvapi32 -mwindows -static\n";
+        dir.children.push_back(buildBat);
+
+        FSNode configJson;
+        configJson.name = "config.json";
+        configJson.is_dir = false;
+        configJson.content = "{\n"
+                             "    \"shortcuts\": {\n"
+                             "        \"ocr_to_clipboard\": \"<alt>+<ctrl>+o\",\n"
+                             "        \"ocr_and_search\": \"<alt>+<ctrl>+s\"\n"
+                             "    }\n"
+                             "}\n";
+        dir.children.push_back(configJson);
+
+        FSNode lensOcrExe;
+        lensOcrExe.name = "LensOcr.exe";
+        lensOcrExe.is_dir = false;
+        lensOcrExe.content = "[Binary Executable Data - Win32 application]";
+        dir.children.push_back(lensOcrExe);
+
+        FSNode mainCpp;
+        mainCpp.name = "main.cpp";
+        mainCpp.is_dir = false;
+        mainCpp.content = "#define WIN32_LEAN_AND_MEAN\n"
+                          "#include <windows.h>\n"
+                          "#include <shellapi.h>\n"
+                          "#include <string>\n"
+                          "#include <vector>\n\n"
+                          "void TriggerSelection(bool searchMode) {\n"
+                          "    // Creates a layered transparent crop window\n"
+                          "}\n\n"
+                          "void OnSelectionCompleted(RECT rc) {\n"
+                          "    // Snipping area, captures screen bits, saves temp BMP,\n"
+                          "    // runs OcrHelper.exe and populates clipboard or Google search.\n"
+                          "}\n\n"
+                          "int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {\n"
+                          "    // Standard tray icon registration & global hooks\n"
+                          "    return 0;\n"
+                          "}";
+        dir.children.push_back(mainCpp);
 
         FSNode ocrCs;
-        ocrCs.name = "LensOCR.cs";
+        ocrCs.name = "OcrHelper.cs";
         ocrCs.is_dir = false;
         ocrCs.content = "using System;\n"
                         "using System.IO;\n"
                         "using System.Threading.Tasks;\n"
                         "using Windows.Graphics.Imaging;\n"
                         "using Windows.Media.Ocr;\n\n"
-                        "namespace LensOcr\n"
-                        "{\n"
-                        "    class Program\n"
-                        "    {\n"
-                        "        static async Task Main(string[] args)\n"
-                        "        {\n"
-                        "            if (args.Length < 1) return;\n"
-                        "            string imagePath = args[0];\n"
-                        "            var file = await Windows.Storage.StorageFile.GetFileFromPathAsync(imagePath);\n"
-                        "            using (var stream = await file.OpenAsync(Windows.Storage.FileAccessMode.Read))\n"
-                        "            {\n"
-                        "                var decoder = await BitmapDecoder.CreateAsync(stream);\n"
-                        "                var softwareBitmap = await decoder.GetSoftwareBitmapAsync();\n"
-                        "                var ocrEngine = OcrEngine.TryCreateFromUserProfileLanguages();\n"
-                        "                var ocrResult = await ocrEngine.RecognizeAsync(softwareBitmap);\n"
-                        "                Console.WriteLine(ocrResult.Text);\n"
-                        "            }\n"
-                        "        }\n"
+                        "class Program {\n"
+                        "    static void Main(string[] args) {\n"
+                        "        // Reads file path, runs UWP OCR engine asynchronously\n"
                         "    }\n"
                         "}";
         dir.children.push_back(ocrCs);
+
+        FSNode ocrExe;
+        ocrExe.name = "OcrHelper.exe";
+        ocrExe.is_dir = false;
+        ocrExe.content = "[Binary Executable Data - .NET Core application]";
+        dir.children.push_back(ocrExe);
+
         projects.children.push_back(dir);
     }
 
@@ -812,6 +1005,312 @@ void InitializeVirtualFS() {
         projects.children.push_back(dir);
     }
 
+    // motd
+    {
+        FSNode dir;
+        dir.name = "motd";
+        dir.is_dir = true;
+
+        FSNode gitignore;
+        gitignore.name = ".gitignore";
+        gitignore.is_dir = false;
+        gitignore.content = "cache.json\ntodo.json\n";
+        dir.children.push_back(gitignore);
+
+        FSNode configJson;
+        configJson.name = "config.json";
+        configJson.is_dir = false;
+        configJson.content = "{\n"
+                             "    \"username\": \"Louie\",\n"
+                             "    \"weather_location\": \"Portland,ME\",\n"
+                             "    \"theme\": \"ocean\",\n"
+                             "    \"sections\": {\n"
+                             "        \"system_stats\": true,\n"
+                             "        \"weather\": true,\n"
+                             "        \"git_status\": true,\n"
+                             "        \"todos\": true,\n"
+                             "        \"dev_tips\": true\n"
+                             "    }\n"
+                             "}\n";
+        dir.children.push_back(configJson);
+
+        FSNode cacheJson;
+        cacheJson.name = "cache.json";
+        cacheJson.is_dir = false;
+        cacheJson.content = "{\n"
+                            "    \"timestamp\": 1780000000.0,\n"
+                            "    \"weather\": \"⛅ +15°C Sunny\",\n"
+                            "    \"git_status\": {\n"
+                            "        \"motd\": {\n"
+                            "            \"branch\": \"master\",\n"
+                            "            \"dirty\": false,\n"
+                            "            \"modified\": 0,\n"
+                            "            \"untracked\": 0,\n"
+                            "            \"remote\": \"Synced\"\n"
+                            "        }\n"
+                            "    }\n"
+                            "}\n";
+        dir.children.push_back(cacheJson);
+
+        FSNode todoJson;
+        todoJson.name = "todo.json";
+        todoJson.is_dir = false;
+        todoJson.content = "[]\n";
+        dir.children.push_back(todoJson);
+
+        FSNode installPs;
+        installPs.name = "install.ps1";
+        installPs.is_dir = false;
+        installPs.content = "# install.ps1 - Installer for Terminal MOTD\n"
+                             "param ([switch]$Uninstall)\n\n"
+                             "$scriptPath = \"$PSScriptRoot\\main.py\"\n"
+                             "if ($Uninstall) {\n"
+                             "    Write-Host \"Uninstalling Terminal MOTD hook...\"\n"
+                             "    # Safely parses and removes hooks from PowerShell profile scripts\n"
+                             "} else {\n"
+                             "    Write-Host \"Installing Terminal MOTD hook...\"\n"
+                             "    # Inserts Python invocation trigger to user profile files\n"
+                             "}\n";
+        dir.children.push_back(installPs);
+
+        FSNode mainPy;
+        mainPy.name = "main.py";
+        mainPy.is_dir = false;
+        mainPy.content = "import os, sys, json, time, subprocess, argparse\n"
+                         "from datetime import datetime\n"
+                         "try: import psutil\n"
+                         "except ImportError: psutil = None\n\n"
+                         "def get_system_stats():\n"
+                         "    if not psutil: return None\n"
+                         "    return {\n"
+                         "        'cpu_pct': psutil.cpu_percent(interval=None),\n"
+                         "        'ram_pct': psutil.virtual_memory().percent,\n"
+                         "        'uptime': '7h 9m'\n"
+                         "    }\n\n"
+                         "def check_git_repo(path):\n"
+                         "    return {'branch': 'master', 'dirty': False, 'remote': 'Synced'}\n\n"
+                         "def print_dashboard():\n"
+                         "    print('Welcome, Louie!')\n"
+                         "    stats = get_system_stats()\n"
+                         "    if stats:\n"
+                         "        print(f'CPU: {stats[\"cpu_pct\"]}% | RAM: {stats[\"ram_pct\"]}%')\n\n"
+                         "if __name__ == '__main__':\n"
+                         "    print_dashboard()\n";
+        dir.children.push_back(mainPy);
+
+        FSNode readme;
+        readme.name = "README.md";
+        readme.is_dir = false;
+        readme.content = "# Terminal MOTD (Message of the Day) Dashboard\n\n"
+                         "A beautiful, high-contrast, dynamic developer dashboard for Windows terminal shells (PowerShell, CMD, Bash).\n\n"
+                         "## Features\n"
+                         "- 🖥️ **System Health Monitor**: Live metrics for CPU, RAM, and Disk space.\n"
+                         "- ⛅ **Dynamic Weather**: Local weather info sourced directly from wttr.in.\n"
+                         "- 🗃️ **Git Repository Tracker**: Scans Git folders inside your sandbox.\n"
+                         "- 📝 **Productivity Todo checklist**: Persisted checklist manager.\n";
+        dir.children.push_back(readme);
+
+        projects.children.push_back(dir);
+    }
+
+    // terminal_launcher
+    {
+        FSNode dir;
+        dir.name = "terminal_launcher";
+        dir.is_dir = true;
+
+        FSNode gitignore;
+        gitignore.name = ".gitignore";
+        gitignore.is_dir = false;
+        gitignore.content = "__pycache__/\n*.exe\n";
+        dir.children.push_back(gitignore);
+
+        FSNode buildBat;
+        buildBat.name = "build.bat";
+        buildBat.is_dir = false;
+        buildBat.content = "@echo off\n"
+                           "g++ -O3 -std=c++17 main.cpp -o TerminalLauncher.exe -luser32 -lshell32 -lgdi32 -ladvapi32 -mwindows -static\n";
+        dir.children.push_back(buildBat);
+
+        FSNode configJson;
+        configJson.name = "config.json";
+        configJson.is_dir = false;
+        configJson.content = "{\n"
+                             "    \"shortcuts\": {\n"
+                             "        \"<alt>+<ctrl>+u\": \"wsl\",\n"
+                             "        \"<alt>+<ctrl>+p\": \"powershell\",\n"
+                             "        \"<alt>+<ctrl>+c\": \"cmd\",\n"
+                             "        \"<alt>+<ctrl>+7\": \"pwsh\",\n"
+                             "        \"<alt>+<ctrl>+/\": \"pwsh -NoExit -Command agy\",\n"
+                             "        \"<alt>+<ctrl>+a\": \"pwsh -Verb RunAs\"\n"
+                             "    }\n"
+                             "}\n";
+        dir.children.push_back(configJson);
+
+        FSNode mainCpp;
+        mainCpp.name = "main.cpp";
+        mainCpp.is_dir = false;
+        mainCpp.content = "#define WIN32_LEAN_AND_MEAN\n"
+                          "#include <windows.h>\n"
+                          "#include <shellapi.h>\n"
+                          "#include <string>\n"
+                          "#include <vector>\n\n"
+                          "void LaunchCommand(std::string command) {\n"
+                          "    // Parse and run program commands\n"
+                          "}\n\n"
+                          "int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {\n"
+                          "    // Single instance mutex and notification icons setup\n"
+                          "    return 0;\n"
+                          "}";
+        dir.children.push_back(mainCpp);
+
+        FSNode addStartup;
+        addStartup.name = "add_to_startup.py";
+        addStartup.is_dir = false;
+        addStartup.content = "import os, sys\n"
+                             "import winshell\n"
+                             "from win32com.client import Dispatch\n\n"
+                             "def create_startup_shortcut():\n"
+                             "    startup_path = winshell.startup()\n"
+                             "    shortcut_path = os.path.join(startup_path, 'TerminalLauncher.lnk')\n"
+                             "    shell = Dispatch('WScript.Shell')\n"
+                             "    shortcut = shell.CreateShortCut(shortcut_path)\n"
+                             "    shortcut.Targetpath = sys.executable.replace('python.exe', 'pythonw.exe')\n"
+                             "    shortcut.WorkingDirectory = os.path.dirname(os.path.abspath(__file__))\n"
+                             "    shortcut.save()\n\n"
+                             "if __name__ == '__main__':\n"
+                             "    create_startup_shortcut()\n";
+        dir.children.push_back(addStartup);
+
+        FSNode mainPy;
+        mainPy.name = "main.py";
+        mainPy.is_dir = false;
+        mainPy.content = "import os, sys, threading, subprocess, json\n"
+                         "import pystray, pynput\n"
+                         "from PIL import Image, ImageDraw\n\n"
+                         "class TerminalLauncher:\n"
+                         "    def __init__(self):\n"
+                         "        self.config = json.load(open('config.json'))\n\n"
+                         "    def launch(self, command):\n"
+                         "        subprocess.Popen(f'start {command}', shell=True)\n\n"
+                         "    def run(self):\n"
+                         "        pass\n\n"
+                         "if __name__ == '__main__':\n"
+                         "    TerminalLauncher().run()\n";
+        dir.children.push_back(mainPy);
+
+        FSNode readme;
+        readme.name = "README_AUTO.md";
+        readme.is_dir = false;
+        readme.content = "# Terminal Launcher\n\n"
+                         "A terminal launcher utility with configuration file support.\n\n"
+                         "## Features\n"
+                         "- Quick terminal launching\n"
+                         "- Configuration-based setup\n"
+                         "- Startup integration\n";
+        dir.children.push_back(readme);
+
+        FSNode runBat;
+        runBat.name = "run.bat";
+        runBat.is_dir = false;
+        runBat.content = "@echo off\nstart \"\" \"%~dp0TerminalLauncher.exe\"\n";
+        dir.children.push_back(runBat);
+
+        FSNode launcherExe;
+        launcherExe.name = "TerminalLauncher.exe";
+        launcherExe.is_dir = false;
+        launcherExe.content = "[Binary Executable Data - Win32 background dispatcher]";
+        dir.children.push_back(launcherExe);
+
+        projects.children.push_back(dir);
+    }
+
+    // lhcoyle4.github.io
+    {
+        FSNode dir;
+        dir.name = "lhcoyle4.github.io";
+        dir.is_dir = true;
+
+        FSNode buildWasm;
+        buildWasm.name = "build_wasm.ps1";
+        buildWasm.is_dir = false;
+        buildWasm.content = "# build_wasm.ps1\n"
+                             "# Compiles the C++ ImGui codebase to WebAssembly using Emscripten\n"
+                             "Write-Host \"LCOYLE4 WASM BUILD PIPELINE\" -ForegroundColor Cyan\n"
+                             ". \"..\\emsdk\\emsdk_env.ps1\"\n"
+                             "cmd.exe /c \"em++ -Os src/main.cpp imgui/*.cpp -s USE_SDL=2 -o index.html\"\n";
+        dir.children.push_back(buildWasm);
+
+        FSNode genMap;
+        genMap.name = "generate_map_data.py";
+        genMap.is_dir = false;
+        genMap.content = "import urllib.request, json\n\n"
+                         "# Downloads USGS topographic data and state boundaries\n"
+                         "# Generates coordinate arrays for states, contours, and energy grids\n"
+                         "print('Downloading state contours...')\n"
+                         "with open('src/map_data.h', 'w') as f:\n"
+                         "    f.write('// Auto-generated vector layer coordinates\\n')\n";
+        dir.children.push_back(genMap);
+
+        FSNode indexHtml;
+        indexHtml.name = "index.html";
+        indexHtml.is_dir = false;
+        indexHtml.content = "<!doctype html>\n<html>\n<head>\n    <title>LCOYLE4 // Systems Core V3</title>\n"
+                             "</head>\n<body>\n    <canvas id=\"canvas\"></canvas>\n"
+                             "    <script async src=\"index.js\"></script>\n</body>\n</html>\n";
+        dir.children.push_back(indexHtml);
+
+        FSNode readme;
+        readme.name = "README.md";
+        readme.is_dir = false;
+        readme.content = "# lhcoyle4.github.io (WASM Portfolio)\n\n"
+                         "This repository hosts my personal homepage and developer portfolio, built entirely from scratch in C++ and compiled to WebAssembly (WASM).\n\n"
+                         "## Engineering Architecture\n"
+                         "- **Zero-DOM Rendering**: drawn using Dear ImGui immediate-mode and rendered directly to WebGL2 via shaders.\n"
+                         "- **Low-Level Code**: pure C++17 compiling to highly optimized WASM bytecode.";
+        dir.children.push_back(readme);
+
+        // Nested directory src/
+        FSNode srcDir;
+        srcDir.name = "src";
+        srcDir.is_dir = true;
+
+        FSNode srcMain;
+        srcMain.name = "main.cpp";
+        srcMain.is_dir = false;
+        srcMain.content = "#include <imgui.h>\n"
+                           "#include <SDL.h>\n\n"
+                           "void InitializeVirtualFS() {\n"
+                           "    // Recursively populates file hierarchies for virtual console explore\n"
+                           "}\n\n"
+                           "int main(int argc, char* argv[]) {\n"
+                           "    // Instantiates WebGL frame handlers, maps rendering loop\n"
+                           "    return 0;\n"
+                           "}";
+        srcDir.children.push_back(srcMain);
+
+        FSNode mapData;
+        mapData.name = "map_data.h";
+        mapData.is_dir = false;
+        mapData.content = "// map_data.h (TRUNCATED SAMPLE FOR CONSOLE EXPLORER)\n"
+                           "#pragma once\n"
+                           "const float US_States_Lon[] = { -87.35930f, -85.60667f, -85.43141f };\n"
+                           "const float US_States_Lat[] = { 34.0f, 35.0f, 36.0f };\n"
+                           "// [Remaining 1.9MB of coordinate arrays omitted for workspace view...]\n";
+        srcDir.children.push_back(mapData);
+
+        FSNode shellHtml;
+        shellHtml.name = "shell.html";
+        shellHtml.is_dir = false;
+        shellHtml.content = "<!doctype html>\n<html>\n<head>\n    <title>LCOYLE4 Systems Core</title>\n"
+                             "</head>\n<body>\n    <div id=\"loader\">Booting...</div>\n"
+                             "    <canvas id=\"canvas\"></canvas>\n</body>\n</html>\n";
+        srcDir.children.push_back(shellHtml);
+
+        dir.children.push_back(srcDir);
+        projects.children.push_back(dir);
+    }
+
     g_FSRoot.children.push_back(projects);
 
     FSNode bio;
@@ -882,6 +1381,7 @@ void ExecuteCommand(const std::string& cmdLine) {
         AddLog("  about           - Biographical profile.");
         AddLog("  projects        - Switch to project directory tab.");
         AddLog("  gis             - Switch to GIS Cartography map tab.");
+        AddLog("  permadrift      - Launch PERMADRIFT drift-ship game in browser.");
     }
     else if (lowerCmd == "about") {
         AddLog("====================================================", ImVec4(0.0f, 1.0f, 0.0f, 1.0f));
@@ -1094,6 +1594,17 @@ void ExecuteCommand(const std::string& cmdLine) {
             }
         }
     }
+    else if (lowerCmd == "permadrift") {
+        AddLog("====================================================", ImVec4(0.35f, 0.8f, 1.0f, 1.0f));
+        AddLog("  PERMADRIFT // DRIFTING AT THE WORLDS END",           ImVec4(0.35f, 0.8f, 1.0f, 1.0f));
+        AddLog("----------------------------------------------------", ImVec4(0.35f, 0.8f, 1.0f, 1.0f));
+        AddLog("  Pilot an Autodyne drift-ship through the Permasphere.");
+        AddLog("  Collect relics. Survive the void. Achieve Chronicle.");
+        AddLog("  [C] Triskelion Burst  [V] Phase Shift  [B] Nova Shell");
+        AddLog("====================================================", ImVec4(0.35f, 0.8f, 1.0f, 1.0f));
+        AddLog("Launching PERMADRIFT in browser...", ImVec4(0.9f, 0.9f, 0.0f, 1.0f));
+        OpenGitHubLink("https://lhcoyle4.github.io/asteroids_vectrex/");
+    }
     else {
         AddLog("Command not recognized: '" + cmd + "'. Type 'help' for available options.", ImVec4(1.0f, 0.2f, 0.2f, 1.0f));
     }
@@ -1144,6 +1655,18 @@ std::string GetMockAIOverview(const std::string& name, const std::string& layer)
     }
     if (layer == "Railway") {
         return "The " + name + " railway network is a heavy-rail freight corridor. It serves as a logistics backbone for transporting bulk commodities (including fuel for power stations). Connected to national railway signaling databases.";
+    }
+    if (layer == "Pipeline") {
+        return "The " + name + " is a high-capacity energy transit pipeline. It transports critical resources across several state boundaries, supplying fuel to major power stations. Monitored continuously for pressure anomalies and flow velocity.";
+    }
+    if (layer == "Corridor" || layer == "Energy Corridor") {
+        return "The " + name + " is a high-voltage electrical transmission corridor (HVAC/HVDC). It connects generation hubs to regional distribution substations, maintaining grid synchronization. Operating at nominal phase and thermal limits.";
+    }
+    if (layer == "Lake") {
+        return "Lake " + name + " is a major freshwater body integrated into the regional hydrological and climate monitoring grid. Monitored by USGS water level and quality sensors for estuary management and flood mitigation.";
+    }
+    if (layer == "River") {
+        return "The " + name + " is a key watercourse flowing through major agricultural and industrial zones. Serves as a primary drainage basin and cooling source for power stations. Flow rates and water quality are logged in real-time.";
     }
     if (layer == "State") {
         return "State administrative boundary for " + name + ". Displays state-level regulatory zones, environmental protection areas, and state-jurisdiction energy grids.";
@@ -1309,44 +1832,88 @@ void UpdateHistoryPlots() {
     if (g_NetworkHistory.size() > 100) g_NetworkHistory.erase(g_NetworkHistory.begin());
 }
 
+struct MatchRange {
+    int start;
+    int end;
+    bool isActive;
+};
+
 // Print string with search query highlighted
-void PrintWithSearchHighlight(const std::string& str, const ImVec4& color, const ImVec4& searchColor, const std::string& searchQuery) {
-    if (searchQuery.empty()) {
-        ImGui::TextColored(color, "%s", str.c_str());
+void PrintWithSearchHighlight(const std::string& token, const ImVec4& syntaxColor, const ImVec4& searchColor, const std::vector<MatchRange>& lineMatches, int tokenStart) {
+    if (lineMatches.empty()) {
+        ImGui::TextColored(syntaxColor, "%s", token.c_str());
         ImGui::SameLine(0, 0);
         return;
     }
 
-    size_t pos = 0;
-    std::string lowerStr = str;
-    std::string lowerQuery = searchQuery;
-    std::transform(lowerStr.begin(), lowerStr.end(), lowerStr.begin(), ::tolower);
-    std::transform(lowerQuery.begin(), lowerQuery.end(), lowerQuery.begin(), ::tolower);
+    int cur = tokenStart;
+    int tokenEnd = tokenStart + (int)token.length();
 
-    size_t lastPos = 0;
-    while ((pos = lowerStr.find(lowerQuery, lastPos)) != std::string::npos) {
-        if (pos > lastPos) {
-            std::string before = str.substr(lastPos, pos - lastPos);
-            ImGui::TextColored(color, "%s", before.c_str());
-            ImGui::SameLine(0, 0);
+    while (cur < tokenEnd) {
+        bool insideMatch = false;
+        bool activeMatch = false;
+        int nextBoundary = tokenEnd;
+
+        for (const auto& mr : lineMatches) {
+            if (cur >= mr.start && cur < mr.end) {
+                insideMatch = true;
+                activeMatch = mr.isActive;
+                nextBoundary = std::min(nextBoundary, mr.end);
+                break;
+            } else if (mr.start > cur) {
+                nextBoundary = std::min(nextBoundary, mr.start);
+            }
         }
 
-        std::string match = str.substr(pos, searchQuery.length());
-        ImGui::TextColored(searchColor, "%s", match.c_str());
+        int len = nextBoundary - cur;
+        std::string sub = token.substr(cur - tokenStart, len);
+
+        if (insideMatch) {
+            ImVec2 screenPos = ImGui::GetCursorScreenPos();
+            ImVec2 textSize = ImGui::CalcTextSize(sub.c_str());
+            if (activeMatch) {
+                // Draw active match (solid orange background, white text)
+                ImGui::GetWindowDrawList()->AddRectFilled(screenPos, ImVec2(screenPos.x + textSize.x, screenPos.y + textSize.y), IM_COL32(230, 90, 0, 255));
+                ImGui::TextColored(ImVec4(1.0f, 1.0f, 1.0f, 1.0f), "%s", sub.c_str());
+            } else {
+                // Draw normal match (semi-transparent green background, default search text color)
+                ImGui::GetWindowDrawList()->AddRectFilled(screenPos, ImVec2(screenPos.x + textSize.x, screenPos.y + textSize.y), IM_COL32(0, 180, 50, 80));
+                ImGui::TextColored(searchColor, "%s", sub.c_str());
+            }
+        } else {
+            ImGui::TextColored(syntaxColor, "%s", sub.c_str());
+        }
         ImGui::SameLine(0, 0);
 
-        lastPos = pos + searchQuery.length();
-    }
-
-    if (lastPos < str.length()) {
-        std::string remaining = str.substr(lastPos);
-        ImGui::TextColored(color, "%s", remaining.c_str());
-        ImGui::SameLine(0, 0);
+        cur = nextBoundary;
     }
 }
 
 // Render highlighted line based on file extension
-void RenderHighlightedLine(const std::string& line, const std::string& filename, const std::string& searchQuery) {
+void RenderHighlightedLine(const std::string& line, const std::string& filename, const std::string& searchQuery, int lineIdx = -1) {
+    std::vector<MatchRange> lineMatches;
+    if (!searchQuery.empty()) {
+        std::string lowerLine = line;
+        std::string lowerQuery = searchQuery;
+        std::transform(lowerLine.begin(), lowerLine.end(), lowerLine.begin(), ::tolower);
+        std::transform(lowerQuery.begin(), lowerQuery.end(), lowerQuery.begin(), ::tolower);
+        size_t pos = 0;
+        while ((pos = lowerLine.find(lowerQuery, pos)) != std::string::npos) {
+            MatchRange mr;
+            mr.start = (int)pos;
+            mr.end = (int)(pos + searchQuery.length());
+            mr.isActive = false;
+            if (g_ViMode && lineIdx >= 0 && g_ViActiveMatchIdx >= 0 && g_ViActiveMatchIdx < (int)g_ViSearchMatches.size()) {
+                const auto& am = g_ViSearchMatches[g_ViActiveMatchIdx];
+                if (am.line_idx == lineIdx && am.char_pos == (int)pos) {
+                    mr.isActive = true;
+                }
+            }
+            lineMatches.push_back(mr);
+            pos += searchQuery.length();
+        }
+    }
+
     if (line.empty()) {
         ImGui::TextUnformatted("");
         return;
@@ -1365,11 +1932,11 @@ void RenderHighlightedLine(const std::string& line, const std::string& filename,
 
     if (ext == "md" || ext == "txt") {
         if (line[0] == '#') {
-            PrintWithSearchHighlight(line, colKeyword, colSearch, searchQuery);
+            PrintWithSearchHighlight(line, colKeyword, colSearch, lineMatches, 0);
             ImGui::TextUnformatted("");
             return;
         }
-        PrintWithSearchHighlight(line, colNormal, colSearch, searchQuery);
+        PrintWithSearchHighlight(line, colNormal, colSearch, lineMatches, 0);
         ImGui::TextUnformatted("");
         return;
     }
@@ -1382,7 +1949,7 @@ void RenderHighlightedLine(const std::string& line, const std::string& filename,
     while (i < len) {
         if (commentPos != std::string::npos && (size_t)i == commentPos) {
             std::string commentStr = line.substr(i);
-            PrintWithSearchHighlight(commentStr, colComment, colSearch, searchQuery);
+            PrintWithSearchHighlight(commentStr, colComment, colSearch, lineMatches, i);
             break;
         }
 
@@ -1392,6 +1959,7 @@ void RenderHighlightedLine(const std::string& line, const std::string& filename,
             char quoteChar = c;
             std::string strLit = "";
             strLit += c;
+            int startPos = i;
             i++;
             while (i < len) {
                 strLit += line[i];
@@ -1401,32 +1969,35 @@ void RenderHighlightedLine(const std::string& line, const std::string& filename,
                 }
                 i++;
             }
-            PrintWithSearchHighlight(strLit, colString, colSearch, searchQuery);
+            PrintWithSearchHighlight(strLit, colString, colSearch, lineMatches, startPos);
             continue;
         }
 
         if (c == '#') {
             std::string preproc = "";
+            int startPos = i;
             while (i < len && !isspace(line[i]) && line[i] != '<' && line[i] != '"') {
                 preproc += line[i];
                 i++;
             }
-            PrintWithSearchHighlight(preproc, colNumber, colSearch, searchQuery);
+            PrintWithSearchHighlight(preproc, colNumber, colSearch, lineMatches, startPos);
             continue;
         }
 
         if (isdigit(c)) {
             std::string num = "";
+            int startPos = i;
             while (i < len && (isdigit(line[i]) || line[i] == '.' || line[i] == 'f' || line[i] == 'x')) {
                 num += line[i];
                 i++;
             }
-            PrintWithSearchHighlight(num, colNumber, colSearch, searchQuery);
+            PrintWithSearchHighlight(num, colNumber, colSearch, lineMatches, startPos);
             continue;
         }
 
         if (isalpha(c) || c == '_') {
             std::string ident = "";
+            int startPos = i;
             while (i < len && (isalnum(line[i]) || line[i] == '_')) {
                 ident += line[i];
                 i++;
@@ -1443,13 +2014,13 @@ void RenderHighlightedLine(const std::string& line, const std::string& filename,
                 isKw = true;
             }
 
-            PrintWithSearchHighlight(ident, isKw ? colKeyword : colNormal, colSearch, searchQuery);
+            PrintWithSearchHighlight(ident, isKw ? colKeyword : colNormal, colSearch, lineMatches, startPos);
             continue;
         }
 
         std::string punc = "";
         punc += c;
-        PrintWithSearchHighlight(punc, colNormal, colSearch, searchQuery);
+        PrintWithSearchHighlight(punc, colNormal, colSearch, lineMatches, i);
         i++;
     }
     ImGui::TextUnformatted("");
@@ -1753,6 +2324,20 @@ int main(int, char**)
 
         ImGui::Spacing();
         ImGui::Separator();
+        ImGui::Spacing();
+
+        // PERMADRIFT launch button
+        ImGui::PushStyleColor(ImGuiCol_Button,        ImVec4(0.02f, 0.04f, 0.18f, 1.0f));
+        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.00f, 0.12f, 0.42f, 1.0f));
+        ImGui::PushStyleColor(ImGuiCol_ButtonActive,  ImVec4(0.00f, 0.20f, 0.60f, 1.0f));
+        ImGui::PushStyleColor(ImGuiCol_Text,          ImVec4(0.40f, 0.85f, 1.00f, 1.0f));
+        if (ImGui::Button(" [>] PLAY PERMADRIFT", ImVec2(-FLT_MIN, 38.0f))) {
+            OpenGitHubLink("https://lhcoyle4.github.io/asteroids_vectrex/");
+        }
+        ImGui::PopStyleColor(4);
+
+        ImGui::Spacing();
+        ImGui::Separator();
         ImGui::TextWrapped("Bio: BSCS + GIS Master's Cert. Portland, ME. Aspiring drone pilot, Python automations, C/C++ programmer.");
 
         ImGui::EndChild();
@@ -1802,7 +2387,7 @@ int main(int, char**)
                 for (size_t i = 0; i < g_ViLines.size(); ++i) {
                     ImGui::TextColored(ImVec4(0.3f, 0.6f, 0.3f, 1.0f), "%4d │ ", (int)i + 1);
                     ImGui::SameLine();
-                    RenderHighlightedLine(g_ViLines[i], g_ViFilename, g_ViSearchQuery);
+                    RenderHighlightedLine(g_ViLines[i], g_ViFilename, g_ViSearchQuery, (int)i);
                 }
                 ImGui::PopStyleVar();
                 ImGui::EndChild();
@@ -1833,25 +2418,24 @@ int main(int, char**)
                             }
                         } else if (g_ViCommandChar == '/') {
                             g_ViSearchQuery = cmdStr;
+                            g_ViSearchMatches.clear();
+                            g_ViActiveMatchIdx = -1;
                             if (!g_ViSearchQuery.empty()) {
-                                bool found = false;
+                                std::string lowerQuery = g_ViSearchQuery;
+                                std::transform(lowerQuery.begin(), lowerQuery.end(), lowerQuery.begin(), ::tolower);
                                 for (size_t i = 0; i < g_ViLines.size(); ++i) {
                                     std::string lowerLine = g_ViLines[i];
-                                    std::string lowerQuery = g_ViSearchQuery;
                                     std::transform(lowerLine.begin(), lowerLine.end(), lowerLine.begin(), ::tolower);
-                                    std::transform(lowerQuery.begin(), lowerQuery.end(), lowerQuery.begin(), ::tolower);
-                                    if (lowerLine.find(lowerQuery) != std::string::npos) {
-                                        g_ViSearchMatchIdx = (int)i;
-                                        g_ViScrollToLine = (int)i;
-                                        found = true;
-                                        break;
+                                    size_t pos = 0;
+                                    while ((pos = lowerLine.find(lowerQuery, pos)) != std::string::npos) {
+                                        g_ViSearchMatches.push_back({ (int)i, (int)pos });
+                                        pos += lowerQuery.length();
                                     }
                                 }
-                                if (!found) {
-                                    g_ViSearchMatchIdx = -1;
+                                if (!g_ViSearchMatches.empty()) {
+                                    g_ViActiveMatchIdx = 0;
+                                    g_ViScrollToLine = g_ViSearchMatches[0].line_idx;
                                 }
-                            } else {
-                                g_ViSearchMatchIdx = -1;
                             }
                         }
                         strcpy(g_ViCmdInput, "");
@@ -1862,22 +2446,57 @@ int main(int, char**)
                     ImGui::PopStyleVar();
                     ImGui::PopStyleColor(3);
                 } else {
-                    ImGui::TextColored(ImVec4(0.0f, 0.8f, 0.2f, 1.0f), "\":q\" to quit | \"/\" to search | Current search: %s", 
-                                       g_ViSearchQuery.empty() ? "(none)" : g_ViSearchQuery.c_str());
+                    if (g_ViSearchQuery.empty()) {
+                        ImGui::TextColored(ImVec4(0.0f, 0.8f, 0.2f, 1.0f), "\":q\" to quit | \"/\" to search");
+                    } else {
+                        if (g_ViSearchMatches.empty()) {
+                            ImGui::TextColored(ImVec4(1.0f, 0.3f, 0.3f, 1.0f), "Pattern not found: %s", g_ViSearchQuery.c_str());
+                        } else {
+                            ImGui::TextColored(ImVec4(1.0f, 0.8f, 0.0f, 1.0f), "Match %d of %d | \":q\" to quit | \"/\" to search | \"n\"/\"N\" to cycle", 
+                                               g_ViActiveMatchIdx + 1, (int)g_ViSearchMatches.size());
+                        }
+                    }
                     
-                    // Char input queue check
+                    // Robust keypress and char queue check to support all layouts and focus states
+                    bool colonPressed = false;
+                    bool slashPressed = false;
+                    bool nPressed = false;
+                    bool NPressed = false;
+
+                    if (ImGui::IsKeyPressed(ImGuiKey_Slash)) slashPressed = true;
+                    if (ImGui::IsKeyPressed(ImGuiKey_Semicolon) && io.KeyShift) colonPressed = true;
+                    if (ImGui::IsKeyPressed(ImGuiKey_N)) {
+                        if (io.KeyShift) NPressed = true;
+                        else nPressed = true;
+                    }
+
                     for (int i = 0; i < io.InputQueueCharacters.Size; ++i) {
                         ImWchar c = io.InputQueueCharacters[i];
-                        if (c == ':') {
-                            g_ViCommandActive = true;
-                            g_ViCommandChar = ':';
-                            g_FocusViInput = true;
-                            strcpy(g_ViCmdInput, "");
-                        } else if (c == '/') {
-                            g_ViCommandActive = true;
-                            g_ViCommandChar = '/';
-                            g_FocusViInput = true;
-                            strcpy(g_ViCmdInput, "");
+                        if (c == ':') colonPressed = true;
+                        if (c == '/') slashPressed = true;
+                        if (c == 'n') nPressed = true;
+                        if (c == 'N') NPressed = true;
+                    }
+
+                    if (colonPressed) {
+                        g_ViCommandActive = true;
+                        g_ViCommandChar = ':';
+                        g_FocusViInput = true;
+                        strcpy(g_ViCmdInput, "");
+                    } else if (slashPressed) {
+                        g_ViCommandActive = true;
+                        g_ViCommandChar = '/';
+                        g_FocusViInput = true;
+                        strcpy(g_ViCmdInput, "");
+                    } else if (nPressed) {
+                        if (!g_ViSearchMatches.empty()) {
+                            g_ViActiveMatchIdx = (g_ViActiveMatchIdx + 1) % g_ViSearchMatches.size();
+                            g_ViScrollToLine = g_ViSearchMatches[g_ViActiveMatchIdx].line_idx;
+                        }
+                    } else if (NPressed) {
+                        if (!g_ViSearchMatches.empty()) {
+                            g_ViActiveMatchIdx = (g_ViActiveMatchIdx - 1 + (int)g_ViSearchMatches.size()) % g_ViSearchMatches.size();
+                            g_ViScrollToLine = g_ViSearchMatches[g_ViActiveMatchIdx].line_idx;
                         }
                     }
 
@@ -2019,6 +2638,16 @@ int main(int, char**)
                 ImGui::Separator();
                 if (ImGui::Button("Inspect GitHub Repository Source Code", ImVec2(-FLT_MIN, 40.0f))) {
                     OpenGitHubLink(proj.url);
+                }
+                if (proj.name == "PERMADRIFT") {
+                    ImGui::Spacing();
+                    ImGui::PushStyleColor(ImGuiCol_Button,        ImVec4(0.02f, 0.04f, 0.18f, 1.0f));
+                    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.00f, 0.15f, 0.45f, 1.0f));
+                    ImGui::PushStyleColor(ImGuiCol_Text,          ImVec4(0.40f, 0.85f, 1.00f, 1.0f));
+                    if (ImGui::Button("[>  PLAY PERMADRIFT IN BROWSER  <]", ImVec2(-FLT_MIN, 48.0f))) {
+                        OpenGitHubLink("https://lhcoyle4.github.io/asteroids_vectrex/");
+                    }
+                    ImGui::PopStyleColor(3);
                 }
 
                 // NAVIGATION HISTORY AND EXPLORER STATE UPDATE ON SELECTION CHANGE
@@ -2399,6 +3028,58 @@ int main(int, char**)
                 }
             };
 
+            auto IsMouseNearLine = [&](const float* lons, const float* lats, int count, ImVec2 center, float threshold, bool closed) -> bool {
+                if (count < 2) return false;
+                ImVec2 mousePos = io.MousePos;
+                float thresholdSqr = threshold * threshold;
+                
+                auto DistToSegSqr = [&](ImVec2 p1, ImVec2 p2) -> float {
+                    float dx = p2.x - p1.x;
+                    float dy = p2.y - p1.y;
+                    float lenSqr = dx * dx + dy * dy;
+                    float t = 0.0f;
+                    if (lenSqr > 1e-6f) {
+                        t = ((mousePos.x - p1.x) * dx + (mousePos.y - p1.y) * dy) / lenSqr;
+                        if (t < 0.0f) t = 0.0f;
+                        else if (t > 1.0f) t = 1.0f;
+                    }
+                    float cx = p1.x + t * dx;
+                    float cy = p1.y + t * dy;
+                    return (mousePos.x - cx) * (mousePos.x - cx) + (mousePos.y - cy) * (mousePos.y - cy);
+                };
+
+                for (int i = 0; i < count - 1; ++i) {
+                    ImVec2 p1 = ProjectLonLat(lons[i], lats[i], center, g_MapScale, g_MapOffset);
+                    ImVec2 p2 = ProjectLonLat(lons[i+1], lats[i+1], center, g_MapScale, g_MapOffset);
+                    
+                    float minX = p1.x < p2.x ? p1.x : p2.x;
+                    float maxX = p1.x > p2.x ? p1.x : p2.x;
+                    float minY = p1.y < p2.y ? p1.y : p2.y;
+                    float maxY = p1.y > p2.y ? p1.y : p2.y;
+                    
+                    if (mousePos.x < minX - threshold || mousePos.x > maxX + threshold ||
+                        mousePos.y < minY - threshold || mousePos.y > maxY + threshold) {
+                        continue;
+                    }
+                    
+                    if (DistToSegSqr(p1, p2) < thresholdSqr) return true;
+                }
+                
+                if (closed) {
+                    ImVec2 p1 = ProjectLonLat(lons[count-1], lats[count-1], center, g_MapScale, g_MapOffset);
+                    ImVec2 p2 = ProjectLonLat(lons[0], lats[0], center, g_MapScale, g_MapOffset);
+                    float minX = p1.x < p2.x ? p1.x : p2.x;
+                    float maxX = p1.x > p2.x ? p1.x : p2.x;
+                    float minY = p1.y < p2.y ? p1.y : p2.y;
+                    float maxY = p1.y > p2.y ? p1.y : p2.y;
+                    if (!(mousePos.x < minX - threshold || mousePos.x > maxX + threshold ||
+                          mousePos.y < minY - threshold || mousePos.y > maxY + threshold)) {
+                        if (DistToSegSqr(p1, p2) < thresholdSqr) return true;
+                    }
+                }
+                return false;
+            };
+
             struct QueuedLabel {
                 ImVec2 pos;
                 ImU32 color;
@@ -2537,7 +3218,15 @@ int main(int, char**)
                     const auto& lake = US_Lakes[i];
                     for (int p = 0; p < lake.part_count; ++p) {
                         const auto& part = US_Lakes_Parts[lake.part_start + p];
-                        DrawMapLine(&US_Lakes_Lon[part.start_index], &US_Lakes_Lat[part.start_index], part.count, IM_COL32(0, 100, 150, 140), 1.3f, true, canvasCenter);
+                        DrawMapLine(&US_Lakes_Lon[part.start_index], &US_Lakes_Lat[part.start_index], part.count, IM_COL32(0, 220, 120, 200), 2.2f, true, canvasCenter);
+                        
+                        bool isLakeHovered = hovered && IsMouseNearLine(&US_Lakes_Lon[part.start_index], &US_Lakes_Lat[part.start_index], part.count, canvasCenter, 4.0f, true);
+                        if (isLakeHovered) {
+                            ImGui::SetTooltip("[Lake] %s\nClick to get AI Overview details.", lake.name);
+                            if (ImGui::IsMouseReleased(ImGuiMouseButton_Left) && io.MouseDragMaxDistanceSqr[0] < 16.0f) {
+                                OpenSgeOverview(lake.name, "Lake");
+                            }
+                        }
                     }
                 }
                 
@@ -2546,16 +3235,24 @@ int main(int, char**)
                     const auto& river = US_Rivers[i];
                     for (int p = 0; p < river.part_count; ++p) {
                         const auto& part = US_Rivers_Parts[river.part_start + p];
-                        DrawMapLine(&US_Rivers_Lon[part.start_index], &US_Rivers_Lat[part.start_index], part.count, IM_COL32(0, 100, 150, 120), 1.2f, false, canvasCenter);
+                        DrawMapLine(&US_Rivers_Lon[part.start_index], &US_Rivers_Lat[part.start_index], part.count, IM_COL32(0, 200, 100, 180), 1.8f, false, canvasCenter);
+                        
+                        bool isRiverHovered = hovered && IsMouseNearLine(&US_Rivers_Lon[part.start_index], &US_Rivers_Lat[part.start_index], part.count, canvasCenter, 4.0f, false);
+                        if (isRiverHovered) {
+                            ImGui::SetTooltip("[River] %s\nClick to get AI Overview details.", river.name);
+                            if (ImGui::IsMouseReleased(ImGuiMouseButton_Left) && io.MouseDragMaxDistanceSqr[0] < 16.0f) {
+                                OpenSgeOverview(river.name, "River");
+                            }
+                        }
                     }
                 }
 
                 // River/Lake text labels
                 ImVec2 supCenter = ProjectLonLat(-88.5f, 47.5f, canvasCenter, g_MapScale, g_MapOffset);
-                QueueScaledLabel(supCenter, IM_COL32(0, 140, 170, 120), "L. SUPERIOR", 4.0f, g_ShowLabelsLakes, 50, "Lake");
+                QueueScaledLabel(supCenter, IM_COL32(0, 200, 120, 180), "L. SUPERIOR", 4.0f, g_ShowLabelsLakes, 50, "Lake");
 
                 ImVec2 missCenter = ProjectLonLat(-90.5f, 35.1f, canvasCenter, g_MapScale, g_MapOffset);
-                QueueScaledLabel(missCenter, IM_COL32(0, 140, 170, 120), "MISSISSIPPI R.", 5.0f, g_ShowLabelsLakes, 50, "River");
+                QueueScaledLabel(missCenter, IM_COL32(0, 200, 120, 180), "MISSISSIPPI R.", 5.0f, g_ShowLabelsLakes, 50, "River");
             }
 
             // Draw state borders
@@ -2589,6 +3286,14 @@ int main(int, char**)
                     const auto& hw = US_Highways[i];
                     DrawMapLine(&US_Highways_Lon[hw.start_index], &US_Highways_Lat[hw.start_index], hw.count, IM_COL32(0, 200, 50, 95), 1.2f, false, canvasCenter);
                     
+                    bool isHwHovered = hovered && IsMouseNearLine(&US_Highways_Lon[hw.start_index], &US_Highways_Lat[hw.start_index], hw.count, canvasCenter, 4.0f, false);
+                    if (isHwHovered) {
+                        ImGui::SetTooltip("[Interstate] %s\nClick to get AI Overview details.", hw.name);
+                        if (ImGui::IsMouseReleased(ImGuiMouseButton_Left) && io.MouseDragMaxDistanceSqr[0] < 16.0f) {
+                            OpenSgeOverview(hw.name, "Interstate");
+                        }
+                    }
+                    
                     if (hw.count > 0) {
                         int midIdx = hw.start_index + hw.count / 2;
                         ImVec2 labelPos = ProjectLonLat(US_Highways_Lon[midIdx], US_Highways_Lat[midIdx], canvasCenter, g_MapScale, g_MapOffset);
@@ -2602,6 +3307,14 @@ int main(int, char**)
                 for (int i = 0; i < US_SecondaryHighways_Count; ++i) {
                     const auto& hw = US_SecondaryHighways[i];
                     DrawMapLine(&US_SecondaryHighways_Lon[hw.start_index], &US_SecondaryHighways_Lat[hw.start_index], hw.count, IM_COL32(0, 160, 40, 60), 0.9f, false, canvasCenter);
+                    
+                    bool isHwHovered = hovered && IsMouseNearLine(&US_SecondaryHighways_Lon[hw.start_index], &US_SecondaryHighways_Lat[hw.start_index], hw.count, canvasCenter, 4.0f, false);
+                    if (isHwHovered) {
+                        ImGui::SetTooltip("[US Highway] %s\nClick to get AI Overview details.", hw.name);
+                        if (ImGui::IsMouseReleased(ImGuiMouseButton_Left) && io.MouseDragMaxDistanceSqr[0] < 16.0f) {
+                            OpenSgeOverview(hw.name, "US Highway");
+                        }
+                    }
                     
                     if (hw.count > 0) {
                         int midIdx = hw.start_index + hw.count / 2;
@@ -2617,10 +3330,18 @@ int main(int, char**)
                     const auto& rr = US_Railways[i];
                     DrawMapLine(&US_Railways_Lon[rr.start_index], &US_Railways_Lat[rr.start_index], rr.count, IM_COL32(0, 240, 200, 80), 1.1f, false, canvasCenter);
                     
+                    bool isRrHovered = hovered && IsMouseNearLine(&US_Railways_Lon[rr.start_index], &US_Railways_Lat[rr.start_index], rr.count, canvasCenter, 4.0f, false);
+                    if (isRrHovered) {
+                        ImGui::SetTooltip("[Railway] %s\nClick to get AI Overview details.", rr.name);
+                        if (ImGui::IsMouseReleased(ImGuiMouseButton_Left) && io.MouseDragMaxDistanceSqr[0] < 16.0f) {
+                            OpenSgeOverview(rr.name, "Railway");
+                        }
+                    }
+                    
                     if (rr.count > 0) {
                         int midIdx = rr.start_index + rr.count / 2;
                         ImVec2 labelPos = ProjectLonLat(US_Railways_Lon[midIdx], US_Railways_Lat[midIdx], canvasCenter, g_MapScale, g_MapOffset);
-                        QueueScaledLabel(labelPos, IM_COL32(0, 200, 180, 160), rr.name, 10.0f, g_ShowLabelsRailways, 15, "Railroad");
+                        QueueScaledLabel(labelPos, IM_COL32(0, 200, 180, 160), rr.name, 10.0f, g_ShowLabelsRailways, 15, "Railway");
                     }
                 }
             }
@@ -2630,6 +3351,14 @@ int main(int, char**)
                 for (int i = 0; i < US_Pipelines_Count; ++i) {
                     const auto& pl = US_Pipelines[i];
                     DrawMapLine(&US_Pipelines_Lon[pl.start_index], &US_Pipelines_Lat[pl.start_index], pl.count, IM_COL32(0, 150, 200, 85), 1.2f, false, canvasCenter);
+                    
+                    bool isPlHovered = hovered && IsMouseNearLine(&US_Pipelines_Lon[pl.start_index], &US_Pipelines_Lat[pl.start_index], pl.count, canvasCenter, 4.0f, false);
+                    if (isPlHovered) {
+                        ImGui::SetTooltip("[Pipeline] %s\nClick to get AI Overview details.", pl.name);
+                        if (ImGui::IsMouseReleased(ImGuiMouseButton_Left) && io.MouseDragMaxDistanceSqr[0] < 16.0f) {
+                            OpenSgeOverview(pl.name, "Pipeline");
+                        }
+                    }
                     
                     if (pl.count > 0) {
                         int midIdx = pl.start_index + pl.count / 2;
@@ -2644,6 +3373,14 @@ int main(int, char**)
                 for (int i = 0; i < US_EnergyCorridors_Count; ++i) {
                     const auto& ec = US_EnergyCorridors[i];
                     DrawMapLine(&US_EnergyCorridors_Lon[ec.start_index], &US_EnergyCorridors_Lat[ec.start_index], ec.count, IM_COL32(0, 220, 220, 110), 1.3f, false, canvasCenter);
+                    
+                    bool isEcHovered = hovered && IsMouseNearLine(&US_EnergyCorridors_Lon[ec.start_index], &US_EnergyCorridors_Lat[ec.start_index], ec.count, canvasCenter, 4.0f, false);
+                    if (isEcHovered) {
+                        ImGui::SetTooltip("[Corridor] %s\nClick to get AI Overview details.", ec.name);
+                        if (ImGui::IsMouseReleased(ImGuiMouseButton_Left) && io.MouseDragMaxDistanceSqr[0] < 16.0f) {
+                            OpenSgeOverview(ec.name, "Corridor");
+                        }
+                    }
                     
                     if (ec.count > 0) {
                         int midIdx = ec.start_index + ec.count / 2;
