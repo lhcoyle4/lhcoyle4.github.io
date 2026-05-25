@@ -113,6 +113,9 @@ for feat in countries_data['features']:
                 rings_list.append(ring)
                 
     if is_us:
+        alaska_parts = []
+        hawaii_parts = []
+        other_us_parts = []
         for ring in rings_list:
             is_coterminous = any(-126.0 <= pt[0] <= -65.0 and 24.0 <= pt[1] <= 50.0 for pt in ring)
             if is_coterminous:
@@ -124,7 +127,6 @@ for feat in countries_data['features']:
                 us_border_parts.append((start_idx, count))
             else:
                 # Add Alaska/Hawaii/territories to world countries so they render as background
-                part_start = len(world_parts)
                 start_idx = len(world_lons)
                 for idx, pt in enumerate(ring):
                     if idx % 2 == 0 or idx == len(ring) - 1:
@@ -132,10 +134,35 @@ for feat in countries_data['features']:
                         world_lats.append(pt[1])
                 count = len(world_lons) - start_idx
                 if count >= 3:
-                    world_parts.append((start_idx, count))
-                    part_count = len(world_parts) - part_start
-                    if part_count > 0:
-                        world_countries.append(("United States", part_start, part_count))
+                    # Classify ring based on average coordinates
+                    lons = [pt[0] for pt in ring]
+                    lats = [pt[1] for pt in ring]
+                    avg_lon = sum(lons) / len(lons)
+                    avg_lat = sum(lats) / len(lats)
+                    if avg_lat > 50.0:
+                        alaska_parts.append((start_idx, count))
+                    elif avg_lat < 30.0 and avg_lon < -140.0:
+                        hawaii_parts.append((start_idx, count))
+                    else:
+                        other_us_parts.append((start_idx, count))
+                        
+        if alaska_parts:
+            part_start = len(world_parts)
+            for p in alaska_parts:
+                world_parts.append(p)
+            world_countries.append(("Alaska", part_start, len(alaska_parts)))
+            
+        if hawaii_parts:
+            part_start = len(world_parts)
+            for p in hawaii_parts:
+                world_parts.append(p)
+            world_countries.append(("Hawaii", part_start, len(hawaii_parts)))
+            
+        if other_us_parts:
+            part_start = len(world_parts)
+            for p in other_us_parts:
+                world_parts.append(p)
+            world_countries.append(("United States", part_start, len(other_us_parts)))
     else:
         part_start = len(world_parts)
         for ring in rings_list:
