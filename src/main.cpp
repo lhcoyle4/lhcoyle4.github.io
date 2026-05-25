@@ -104,6 +104,23 @@ std::vector<std::string> g_TabMatches;
 int g_TabMatchIdx = -1;
 int g_TabBaseLen = 0;
 
+// Pinned Congested Menu State
+struct PinnedMenuItem {
+    std::string name;
+    std::string layerName;
+    ImU32 color;
+};
+bool g_PinnedMenuOpen = false;
+ImVec2 g_PinnedMenuPos;
+std::vector<PinnedMenuItem> g_PinnedMenuItems;
+bool g_PinnedMenuJustOpened = false;
+
+// SGE (Search Generative Experience) AI Overview Popup State
+bool g_SgeOpen = false;
+std::string g_SgeEntityName = "";
+std::string g_SgeEntityLayer = "";
+std::string g_SgeSummaryText = "";
+
 // Matrix Falling Code Visualizer Globals
 struct MatrixColumn {
     float y;
@@ -1085,6 +1102,60 @@ void ExecuteCommand(const std::string& cmdLine) {
     if (lowerCmd != "clear" && lowerCmd != "cls" && lowerCmd != "matrix") {
         AddLog("");
     }
+}
+
+// Helper to get Google AI Generative Search (SGE) Overview concise summary
+std::string GetMockAIOverview(const std::string& name, const std::string& layer) {
+    if (layer == "City" || layer == "USGS Station") {
+        if (name.find("Seattle") != std::string::npos) {
+            return "USGS Station NW-1 telemetry grid located in Seattle, WA. The station monitors local seismology, water level telemetry, and provides real-time atmospheric data. Historically, this area is key to the Puget Sound monitoring network. Latest logs show standard geological stability and nominal groundwater indicators.";
+        }
+        if (name.find("San Francisco") != std::string::npos) {
+            return "USGS Station SW-2 located in San Francisco, CA. Main functions include monitoring San Andreas Fault crustal deformation, high-precision GPS telemetry, and localized seismic micro-tremors. Currently operating on high-bandwidth telemetry links. Status is active with normal strain telemetry.";
+        }
+        if (name.find("Los Angeles") != std::string::npos) {
+            return "USGS Station SW-1 in Los Angeles, CA. Specializes in groundwater aquifer level sensing, tectonic plate boundary tracking along the southern fault segments, and localized micro-earthquake tracking. Status is nominal with standard water table parameters.";
+        }
+        if (name.find("Denver") != std::string::npos) {
+            return "USGS Station CO-1 in Denver, CO. Monitors Rocky Mountain snowpack depth, river runoff telemetry, and regional seismic activity. Telemetry feeds directly into national hydrological forecast systems. Status is active with normal snowpack levels.";
+        }
+        if (name.find("Houston") != std::string::npos) {
+            return "USGS Station S-1 in Houston, TX. Monitors Gulf coast tide warnings, water table subsidence due to groundwater withdrawal, and regional stormwater drainage telemetry. Currently operating on standby mode with standard coastal telemetry.";
+        }
+        if (name.find("Chicago") != std::string::npos) {
+            return "USGS Station MW-1 in Chicago, IL. Monitors Lake Michigan water level sensors, local seismic activity, and regional river flow telemetry. Telemetry feeds directly into municipal water safety systems. Status is nominal.";
+        }
+        if (name.find("Miami") != std::string::npos) {
+            return "USGS Station SE-1 in Miami, FL. Dedicated to monitoring Everglades rewilding hydrology, saltwater intrusion into aquifers, and coastal tide telemetry. Part of the South Florida ecosystem restoration network. Status is active.";
+        }
+        if (name.find("New York") != std::string::npos) {
+            return "USGS Station E-1 in New York, NY. Specializes in estuary tide level monitoring, Hudson River salinity telemetry, and local fault line crustal stability tracking. Status is nominal with normal tide cycles.";
+        }
+        return "USGS Telemetry Station. Monitors local geological, hydrological, and seismic telemetry. Status: ACTIVE. Links verified.";
+    }
+    if (layer == "Power Plant" || layer == "Power Station") {
+        return "The " + name + " Power Station is a vital utility node in the US energy infrastructure grid. It supports grid stability in the region, feeding electricity directly into high-voltage energy corridors. Recent telemetry confirms active status with nominal power output phase-matched to the regional grid.";
+    }
+    if (layer == "Substation") {
+        return "The " + name + " Substation acts as a critical electrical transmission and distribution node in the regional high-voltage grid. It steps down high-voltage power from transmission corridors to local sub-transmission grids. Operating at standard phase and frequency, it features telemetry for remote monitoring and load balancing. Current load capacity is nominal.";
+    }
+    if (layer == "Highway" || layer == "Interstate" || layer == "US Highway") {
+        return "Interstate " + name + " is a major arterial corridor facilitating logistics, passenger transport, and interstate commerce. Monitored by regional telemetry nodes for traffic flow and structural integrity. Part of the National Highway System, it intersects key power and energy transmission corridors across its route.";
+    }
+    if (layer == "Railway") {
+        return "The " + name + " railway network is a heavy-rail freight corridor. It serves as a logistics backbone for transporting bulk commodities (including fuel for power stations). Connected to national railway signaling databases.";
+    }
+    if (layer == "State") {
+        return "State administrative boundary for " + name + ". Displays state-level regulatory zones, environmental protection areas, and state-jurisdiction energy grids.";
+    }
+    return "AI Search Generative Overview for " + name + ". Part of the " + layer + " mapping layer database. Operating parameters are within normal design limits. For more information, consult the technical manual.";
+}
+
+void OpenSgeOverview(const std::string& name, const std::string& layer) {
+    g_SgeEntityName = name;
+    g_SgeEntityLayer = layer;
+    g_SgeSummaryText = GetMockAIOverview(name, layer);
+    g_SgeOpen = true;
 }
 
 // Helper function to handle tab completion
@@ -2126,6 +2197,7 @@ int main(int, char**)
             ImGui::EndChild();
         }
         else if (g_ActiveTab == 2) {
+            g_PinnedMenuJustOpened = false;
             // ==========================================
             // TAB 2: GIS CARTOGRAPHY
             // ==========================================
@@ -2689,17 +2761,33 @@ int main(int, char**)
                     ImU32 dotColor = isSelected ? IM_COL32(255, 200, 0, 255) : IM_COL32(0, 255, 30, 255);
                     ImU32 ringColor = isSelected ? IM_COL32(255, 200, 0, 180) : IM_COL32(0, 255, 30, 120);
 
-                    // Draw pin
-                    drawList->AddCircleFilled(p, isSelected ? 5.5f : 4.0f, dotColor);
-                    drawList->AddCircle(p, isSelected ? 9.0f : 7.0f, ringColor, 16, 1.0f);
+                    // Draw antenna tower primitive
+                    float s = isSelected ? 1.3f : 0.9f;
+                    
+                    // Draw base A-frame tower
+                    drawList->AddLine(ImVec2(p.x - 3.0f * s, p.y + 5.0f * s), ImVec2(p.x, p.y - 3.0f * s), dotColor, 1.0f);
+                    drawList->AddLine(ImVec2(p.x + 3.0f * s, p.y + 5.0f * s), ImVec2(p.x, p.y - 3.0f * s), dotColor, 1.0f);
+                    drawList->AddLine(ImVec2(p.x - 1.8f * s, p.y + 1.5f * s), ImVec2(p.x + 1.8f * s, p.y + 1.5f * s), dotColor, 1.0f);
+                    
+                    // Draw antenna mast
+                    drawList->AddLine(ImVec2(p.x, p.y - 3.0f * s), ImVec2(p.x, p.y - 9.0f * s), dotColor, 1.0f);
+                    // Cross bar
+                    drawList->AddLine(ImVec2(p.x - 1.5f * s, p.y - 6.0f * s), ImVec2(p.x + 1.5f * s, p.y - 6.0f * s), dotColor, 1.0f);
+                    
+                    // Transmitter beacon
+                    drawList->AddCircleFilled(ImVec2(p.x, p.y - 9.0f * s), 1.3f * s, ringColor);
+                    // Outer signal ring
+                    drawList->AddCircle(ImVec2(p.x, p.y - 9.0f * s), isSelected ? 6.0f * s : 4.0f * s, ringColor, 12, 0.8f);
                     
                     // Hover detection
                     float dx = io.MousePos.x - p.x;
                     float dy = io.MousePos.y - p.y;
-                    if (hovered && sqrtf(dx * dx + dy * dy) < 9.0f) {
-                        ImGui::SetTooltip("%s\nClick to select station.", city.name.c_str());
-                        if (ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
+                    bool isIconHovered = hovered && (dx >= -4.0f * s && dx <= 4.0f * s && dy >= -10.0f * s && dy <= 6.0f * s);
+                    if (isIconHovered) {
+                        ImGui::SetTooltip("%s\nUSGS Telemetry Station.\nClick to select & search on Google.", city.name.c_str());
+                        if (ImGui::IsMouseReleased(ImGuiMouseButton_Left) && io.MouseDragMaxDistanceSqr[0] < 16.0f) {
                             g_SelectedCity = (int)i;
+                            SearchGoogle(city.name + " USGS Station");
                         }
                     }
 
@@ -2780,22 +2868,47 @@ int main(int, char**)
                                      io.MousePos.x >= pos.x && io.MousePos.x <= pos.x + totalSize.x &&
                                      io.MousePos.y >= pos.y && io.MousePos.y <= pos.y + totalSize.y;
 
-                    if (isHovered && hasIndicator) {
-                        ImGui::BeginTooltip();
-                        ImGui::TextColored(ImVec4(1.0f, 0.8f, 0.0f, 1.0f), "CONGESTED AREA - OVERLAPPING LAYERS:");
-                        ImGui::Separator();
-                        
-                        // Lead label
-                        ImVec4 colLead = ImGui::ColorConvertU32ToFloat4(label.color);
-                        ImGui::TextColored(colLead, "[%s] %s", label.layerName.c_str(), label.text.c_str());
+                    if (isHovered) {
+                        if (hasIndicator) {
+                            ImGui::BeginTooltip();
+                            ImGui::TextColored(ImVec4(1.0f, 0.8f, 0.0f, 1.0f), "CONGESTED AREA - OVERLAPPING LAYERS (Click to pin):");
+                            ImGui::Separator();
+                            
+                            // Lead label
+                            ImVec4 colLead = ImGui::ColorConvertU32ToFloat4(label.color);
+                            ImGui::TextColored(colLead, "[%s] %s", label.layerName.c_str(), label.text.c_str());
 
-                        // Members
-                        for (int idx : cluster.memberIdxs) {
-                            const auto& mb = s_QueuedLabels[idx];
-                            ImVec4 col = ImGui::ColorConvertU32ToFloat4(mb.color);
-                            ImGui::TextColored(col, "[%s] %s", mb.layerName.c_str(), mb.text.c_str());
+                            // Members
+                            for (int idx : cluster.memberIdxs) {
+                                const auto& mb = s_QueuedLabels[idx];
+                                ImVec4 col = ImGui::ColorConvertU32ToFloat4(mb.color);
+                                ImGui::TextColored(col, "[%s] %s", mb.layerName.c_str(), mb.text.c_str());
+                            }
+                            ImGui::EndTooltip();
+
+                            // Click to pin menu
+                            if (ImGui::IsMouseReleased(ImGuiMouseButton_Left) && io.MouseDragMaxDistanceSqr[0] < 16.0f) {
+                                g_PinnedMenuOpen = true;
+                                g_PinnedMenuPos = io.MousePos;
+                                g_PinnedMenuItems.clear();
+                                g_PinnedMenuItems.push_back({ label.text, label.layerName, label.color });
+                                for (int idx : cluster.memberIdxs) {
+                                    const auto& mb = s_QueuedLabels[idx];
+                                    g_PinnedMenuItems.push_back({ mb.text, mb.layerName, mb.color });
+                                }
+                                g_PinnedMenuJustOpened = true;
+                            }
+                        } else {
+                            ImGui::BeginTooltip();
+                            ImGui::TextColored(ImGui::ColorConvertU32ToFloat4(label.color), "[%s] %s", label.layerName.c_str(), label.text.c_str());
+                            ImGui::TextColored(ImVec4(0.7f, 0.7f, 0.7f, 1.0f), "Click to get AI Overview details.");
+                            ImGui::EndTooltip();
+
+                            // Click to get direct SGE AI Overview
+                            if (ImGui::IsMouseReleased(ImGuiMouseButton_Left) && io.MouseDragMaxDistanceSqr[0] < 16.0f) {
+                                OpenSgeOverview(label.text, label.layerName);
+                            }
                         }
-                        ImGui::EndTooltip();
                     }
                 }
             }
@@ -2850,6 +2963,105 @@ int main(int, char**)
             if (ImGui::Button("Reset", ImVec2(55, 30))) {
                 g_MapScale = 8.0f;
                 g_MapOffset = ImVec2(0.0f, 0.0f);
+            }
+
+            // Render Pinned Congested Area Menu
+            if (g_PinnedMenuOpen) {
+                ImGui::SetNextWindowPos(g_PinnedMenuPos, ImGuiCond_Appearing);
+                ImGui::SetNextWindowSize(ImVec2(340, 0)); // Auto height
+                ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4(0.01f, 0.05f, 0.02f, 0.98f)); // Dark green
+                ImGui::PushStyleColor(ImGuiCol_Border, ImVec4(1.0f, 0.8f, 0.0f, 1.0f)); // Amber border
+                ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 4.0f);
+                ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 1.5f);
+                
+                ImGuiWindowFlags menuFlags = ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoSavedSettings;
+                
+                if (ImGui::Begin("##PinnedCongestedMenu", &g_PinnedMenuOpen, menuFlags)) {
+                    ImGui::TextColored(ImVec4(1.0f, 0.8f, 0.0f, 1.0f), "CONGESTED AREA - OVERLAPPING LAYERS");
+                    ImGui::Separator();
+                    ImGui::Spacing();
+                    
+                    for (size_t idx = 0; idx < g_PinnedMenuItems.size(); ++idx) {
+                        const auto& item = g_PinnedMenuItems[idx];
+                        ImVec4 col = ImGui::ColorConvertU32ToFloat4(item.color);
+                        char itemLabel[256];
+                        snprintf(itemLabel, sizeof(itemLabel), "[%s] %s", item.layerName.c_str(), item.name.c_str());
+                        
+                        ImGui::PushStyleColor(ImGuiCol_Text, col);
+                        if (ImGui::Selectable(itemLabel, false)) {
+                            OpenSgeOverview(item.name, item.layerName);
+                        }
+                        ImGui::PopStyleColor(); // Text
+                    }
+                    
+                    ImGui::Spacing();
+                    ImGui::Separator();
+                    if (ImGui::Button("Close Menu", ImVec2(-FLT_MIN, 0))) {
+                        g_PinnedMenuOpen = false;
+                    }
+                    
+                    // Click outside to close detection
+                    if (!ImGui::IsWindowHovered(ImGuiHoveredFlags_AllowWhenBlockedByActiveItem) && ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
+                        if (!g_PinnedMenuJustOpened) {
+                            g_PinnedMenuOpen = false;
+                        }
+                    }
+                }
+                ImGui::End();
+                
+                ImGui::PopStyleVar(2);
+                ImGui::PopStyleColor(2);
+            }
+            
+            // Render SGE AI Overview Popup Modal
+            if (g_SgeOpen) {
+                ImGui::SetNextWindowSize(ImVec2(520, 320), ImGuiCond_FirstUseEver);
+                ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4(0.02f, 0.08f, 0.04f, 0.96f)); // Deep dark green/blue SGE style
+                ImGui::PushStyleColor(ImGuiCol_Border, ImVec4(0.0f, 1.0f, 0.3f, 1.0f)); // Glowing active green border
+                ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 8.0f);
+                ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 2.0f);
+                
+                if (ImGui::Begin("✦ AI Overview", &g_SgeOpen, ImGuiWindowFlags_NoCollapse)) {
+                    ImGui::TextColored(ImVec4(0.0f, 1.0f, 0.3f, 1.0f), "AI OVERVIEW FOR:");
+                    ImGui::SameLine();
+                    ImGui::TextColored(ImVec4(1.0f, 0.8f, 0.0f, 1.0f), "%s", g_SgeEntityName.c_str());
+                    
+                    ImGui::TextColored(ImVec4(0.5f, 0.7f, 1.0f, 0.8f), "Source Layer: %s", g_SgeEntityLayer.c_str());
+                    ImGui::Separator();
+                    ImGui::Spacing();
+                    
+                    // Render description inside a child frame with customized background
+                    ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0.0f, 0.12f, 0.05f, 1.0f));
+                    if (ImGui::BeginChild("##SgeTextChild", ImVec2(0, -45), true)) {
+                        ImGui::TextWrapped("%s", g_SgeSummaryText.c_str());
+                        ImGui::EndChild();
+                    }
+                    ImGui::PopStyleColor(); // FrameBg
+                    
+                    ImGui::Spacing();
+                    
+                    // Sources footer (Google Search simulation cards)
+                    ImGui::TextColored(ImVec4(0.7f, 0.7f, 0.7f, 1.0f), "Sources:");
+                    ImGui::SameLine();
+                    
+                    ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.0f, 0.2f, 0.05f, 1.0f));
+                    if (ImGui::Button("USGS.gov")) {
+                        SearchGoogle(g_SgeEntityName + " USGS");
+                    }
+                    ImGui::SameLine();
+                    if (ImGui::Button("Wikipedia")) {
+                        SearchGoogle(g_SgeEntityName + " Wikipedia");
+                    }
+                    ImGui::SameLine();
+                    if (ImGui::Button("Energy.gov")) {
+                        SearchGoogle(g_SgeEntityName + " Energy");
+                    }
+                    ImGui::PopStyleColor(); // Button
+                }
+                ImGui::End();
+                
+                ImGui::PopStyleVar(2);
+                ImGui::PopStyleColor(2);
             }
 
             ImGui::EndChild();

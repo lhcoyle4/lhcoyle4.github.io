@@ -37,6 +37,16 @@ if ($LASTEXITCODE -ne 0) {
     exit $LASTEXITCODE
 }
 
+# Post-processing: Add cache-busting timestamp to index.js script tag in index.html
+$htmlFile = "index.html"
+if (Test-Path $htmlFile) {
+    $content = Get-Content $htmlFile -Raw
+    $timestamp = [DateTimeOffset]::UtcNow.ToUnixTimeSeconds()
+    $content = $content -replace 'index\.js', "index.js?v=$timestamp"
+    Set-Content $htmlFile $content
+    Write-Host "Cache-busted index.html script tag with timestamp v=$timestamp" -ForegroundColor Green
+}
+
 Write-Host "=============================================" -ForegroundColor Green
 Write-Host "COMPILATION SUCCESSFUL!" -ForegroundColor Green
 Write-Host "Generated: index.html, index.js, index.wasm" -ForegroundColor Green
