@@ -103,6 +103,41 @@ struct MatrixColumn {
 };
 std::vector<MatrixColumn> s_MatrixColumns;
 
+// Explorer State Globals
+static int g_ExpSelectedProj = -1;
+static std::vector<std::string> g_ExpCurrentDirParts;
+static std::vector<std::vector<std::string>> g_ExpBackHistory;
+static std::vector<std::vector<std::string>> g_ExpForwardHistory;
+static std::string g_ExpSelectedFile = "";
+static char g_ExpSearchBuf[64] = "";
+static std::string g_ExpSearchQuery = "";
+
+struct CommitInfo {
+    std::string message;
+    std::string author;
+    std::string date;
+    std::string changes;
+};
+
+static CommitInfo GetMockCommit(const std::string& filename) {
+    if (filename == "main.cpp") {
+        return { "feat: optimize mouse drag latency by bypassing hook delay", "Louie Coyle <louie@lhcoyle4.com>", "2026-05-20 09:15:44", "+45, -12 lines" };
+    }
+    if (filename == "main.c") {
+        return { "feat: add custom SDL audio mixer and synth pipelines", "Louie Coyle <louie@lhcoyle4.com>", "2026-04-15 17:45:00", "+87, -4 lines" };
+    }
+    if (filename == "config.json") {
+        return { "chore: add WSL configuration shortcuts", "Louie Coyle <louie@lhcoyle4.com>", "2026-05-12 16:04:30", "+5, -1 lines" };
+    }
+    if (filename == "LensOCR.cs") {
+        return { "refactor: port Windows OCR asynchronous loader to C# class", "Louie Coyle <louie@lhcoyle4.com>", "2026-05-05 10:11:12", "+64, -2 lines" };
+    }
+    if (filename == "game.js") {
+        return { "feat: implement high-fidelity CRT bloom phosphor decay filter", "Louie Coyle <louie@lhcoyle4.com>", "2026-04-28 12:00:55", "+38, -15 lines" };
+    }
+    return { "docs: update specifications and project setup instructions", "Louie Coyle <louie@lhcoyle4.com>", "2026-05-18 14:32:01", "+12, -2 lines" };
+}
+
 
 const float Lake_Superior_Lon[] = { -92.1f, -90.0f, -87.0f, -88.0f, -92.1f };
 const float Lake_Superior_Lat[] = { 46.7f,  48.0f,  46.5f,  46.0f,  46.7f };
@@ -1273,6 +1308,20 @@ int main(int, char**)
         ImGui_ImplSDL2_NewFrame();
         ImGui::NewFrame();
 
+        // Switch tabs with Ctrl+1 to Ctrl+5 or F1-F5 keys
+        if (io.KeyCtrl) {
+            if (ImGui::IsKeyPressed(ImGuiKey_1)) { g_ActiveTab = 0; g_FocusTerminalInput = true; }
+            else if (ImGui::IsKeyPressed(ImGuiKey_2)) { g_ActiveTab = 1; }
+            else if (ImGui::IsKeyPressed(ImGuiKey_3)) { g_ActiveTab = 2; }
+            else if (ImGui::IsKeyPressed(ImGuiKey_4)) { g_ActiveTab = 3; }
+            else if (ImGui::IsKeyPressed(ImGuiKey_5)) { g_ActiveTab = 4; }
+        }
+        if (ImGui::IsKeyPressed(ImGuiKey_F1)) { g_ActiveTab = 0; g_FocusTerminalInput = true; }
+        else if (ImGui::IsKeyPressed(ImGuiKey_F2)) { g_ActiveTab = 1; }
+        else if (ImGui::IsKeyPressed(ImGuiKey_F3)) { g_ActiveTab = 2; }
+        else if (ImGui::IsKeyPressed(ImGuiKey_F4)) { g_ActiveTab = 3; }
+        else if (ImGui::IsKeyPressed(ImGuiKey_F5)) { g_ActiveTab = 4; }
+
         // RENDER CENTRAL PORTFOLIO WINDOW (Locks to browser size)
         ImGui::SetNextWindowPos(ImVec2(0, 0));
         ImGui::SetNextWindowSize(io.DisplaySize);
@@ -1333,11 +1382,11 @@ int main(int, char**)
         
         // Stark navigation menu buttons
         const char* menuOptions[] = {
-            " [F1] TERMINAL CONSOLE",
-            " [F2] PROJECT DIRECTORY",
-            " [F3] GIS CARTOGRAPHY",
-            " [F4] HARDWARE PLOTS",
-            " [F5] INTRO & CREDITS"
+            " [Ctrl+1] TERMINAL CONSOLE",
+            " [Ctrl+2] PROJECT DIRECTORY",
+            " [Ctrl+3] GIS CARTOGRAPHY",
+            " [Ctrl+4] HARDWARE PLOTS",
+            " [Ctrl+5] INTRO & CREDITS"
         };
         for (int i = 0; i < 5; ++i) {
             bool selected = (g_ActiveTab == i);
@@ -1602,6 +1651,179 @@ int main(int, char**)
                 if (ImGui::Button("Inspect GitHub Repository Source Code", ImVec2(-FLT_MIN, 40.0f))) {
                     OpenGitHubLink(proj.url);
                 }
+
+                // NAVIGATION HISTORY AND EXPLORER STATE UPDATE ON SELECTION CHANGE
+                if (g_ExpSelectedProj != selectedProj) {
+                    g_ExpSelectedProj = selectedProj;
+                    g_ExpCurrentDirParts = { "projects", g_Projects[selectedProj].name };
+                    g_ExpBackHistory.clear();
+                    g_ExpForwardHistory.clear();
+                    g_ExpSelectedFile = "";
+                    g_ExpSearchBuf[0] = '\0';
+                    g_ExpSearchQuery = "";
+                }
+
+                ImGui::Spacing();
+                ImGui::Separator();
+                ImGui::Spacing();
+                ImGui::TextColored(ImVec4(0.0f, 1.0f, 1.0f, 1.0f), "EMBEDDED CODE REPOSITORY EXPLORER");
+                
+                // Back, Forward, Up navigation controls
+                bool canGoBack = !g_ExpBackHistory.empty();
+                bool canGoForward = !g_ExpForwardHistory.empty();
+                bool canGoUp = g_ExpCurrentDirParts.size() > 2;
+
+                if (!canGoBack) ImGui::BeginDisabled();
+                if (ImGui::Button("< Back")) {
+                    g_ExpForwardHistory.push_back(g_ExpCurrentDirParts);
+                    g_ExpCurrentDirParts = g_ExpBackHistory.back();
+                    g_ExpBackHistory.pop_back();
+                    g_ExpSelectedFile = "";
+                }
+                if (!canGoBack) ImGui::EndDisabled();
+
+                ImGui::SameLine();
+                if (!canGoForward) ImGui::BeginDisabled();
+                if (ImGui::Button("Forward >")) {
+                    g_ExpBackHistory.push_back(g_ExpCurrentDirParts);
+                    g_ExpCurrentDirParts = g_ExpForwardHistory.back();
+                    g_ExpForwardHistory.pop_back();
+                    g_ExpSelectedFile = "";
+                }
+                if (!canGoForward) ImGui::EndDisabled();
+
+                ImGui::SameLine();
+                if (!canGoUp) ImGui::BeginDisabled();
+                if (ImGui::Button("^ Up")) {
+                    std::vector<std::string> newParts = g_ExpCurrentDirParts;
+                    newParts.pop_back();
+                    g_ExpBackHistory.push_back(g_ExpCurrentDirParts);
+                    g_ExpForwardHistory.clear();
+                    g_ExpCurrentDirParts = newParts;
+                    g_ExpSelectedFile = "";
+                }
+                if (!canGoUp) ImGui::EndDisabled();
+
+                ImGui::SameLine();
+                std::string pathStr = "/";
+                for (size_t i = 0; i < g_ExpCurrentDirParts.size(); ++i) {
+                    pathStr += g_ExpCurrentDirParts[i];
+                    if (i + 1 < g_ExpCurrentDirParts.size()) pathStr += "/";
+                }
+                ImGui::TextColored(ImVec4(0.3f, 0.8f, 0.3f, 1.0f), " Path: %s", pathStr.c_str());
+
+                ImGui::Spacing();
+
+                // Explorer layout split: Left (Folders/Files), Right (Viewer + Git Commit History)
+                ImVec2 avail = ImGui::GetContentRegionAvail();
+                float explorerHeight = avail.y > 150.0f ? avail.y - 10.0f : 150.0f; // fill remaining or clamp
+
+                ImGui::BeginChild("ExplorerColumnsContainer", ImVec2(0, explorerHeight), true);
+                ImGui::Columns(2, "ExplorerColumnsSplit", true);
+                
+                // Initialize column width
+                static bool setColWidthExplorer = true;
+                if (setColWidthExplorer) {
+                    ImGui::SetColumnWidth(0, 180.0f);
+                    setColWidthExplorer = false;
+                }
+
+                // Column 0: File explorer hierarchy tree
+                FSNode* dirNode = FindNodeFromParts(g_ExpCurrentDirParts);
+                if (dirNode && dirNode->is_dir) {
+                    ImGui::TextColored(ImVec4(1.0f, 0.8f, 0.0f, 1.0f), "Directories & Files");
+                    ImGui::Separator();
+                    
+                    for (const auto& child : dirNode->children) {
+                        if (child.is_dir) {
+                            std::string label = "[D] " + child.name + "/";
+                            if (ImGui::Selectable(label.c_str(), false)) {
+                                std::vector<std::string> newParts = g_ExpCurrentDirParts;
+                                newParts.push_back(child.name);
+                                g_ExpBackHistory.push_back(g_ExpCurrentDirParts);
+                                g_ExpForwardHistory.clear();
+                                g_ExpCurrentDirParts = newParts;
+                                g_ExpSelectedFile = "";
+                            }
+                        } else {
+                            bool isSelected = (g_ExpSelectedFile == child.name);
+                            std::string label = "[F] " + child.name;
+                            if (ImGui::Selectable(label.c_str(), isSelected)) {
+                                g_ExpSelectedFile = child.name;
+                            }
+                        }
+                    }
+                } else {
+                    ImGui::TextDisabled("Empty Directory");
+                }
+
+                // Column 1: Git commit history + File contents viewer
+                ImGui::NextColumn();
+
+                if (g_ExpSelectedFile.empty()) {
+                    ImGui::TextDisabled("Select a file from the list to view its code and Git metadata.");
+                } else {
+                    FSNode* fileNode = nullptr;
+                    if (dirNode && dirNode->is_dir) {
+                        for (auto& child : dirNode->children) {
+                            if (!child.is_dir && child.name == g_ExpSelectedFile) {
+                                fileNode = &child;
+                                break;
+                            }
+                        }
+                    }
+
+                    if (fileNode) {
+                        CommitInfo ci = GetMockCommit(g_ExpSelectedFile);
+                        
+                        // Commit history header panel
+                        ImGui::PushStyleColor(ImGuiCol_ChildBg, ImVec4(0.01f, 0.05f, 0.01f, 1.0f));
+                        ImGui::BeginChild("GitCommitPanel", ImVec2(0, 52), true);
+                        ImGui::TextColored(ImVec4(0.0f, 1.0f, 0.5f, 1.0f), "Latest commit: %s", ci.message.c_str());
+                        ImGui::TextColored(ImVec4(0.5f, 0.5f, 0.5f, 1.0f), "Authored by %s on %s", ci.author.c_str(), ci.date.c_str());
+                        ImGui::SameLine();
+                        ImGui::TextColored(ImVec4(0.0f, 1.0f, 0.0f, 1.0f), " (%s)", ci.changes.c_str());
+                        ImGui::EndChild();
+                        ImGui::PopStyleColor();
+
+                        ImGui::Spacing();
+
+                        // File search bar
+                        ImGui::PushItemWidth(250.0f);
+                        if (ImGui::InputText("Search File Content", g_ExpSearchBuf, IM_ARRAYSIZE(g_ExpSearchBuf))) {
+                            g_ExpSearchQuery = g_ExpSearchBuf;
+                        }
+                        ImGui::PopItemWidth();
+
+                        ImGui::Spacing();
+
+                        // Split into lines for syntax highlighting render
+                        std::vector<std::string> fileLines;
+                        std::stringstream fileSs(fileNode->content);
+                        std::string fileLine;
+                        while (std::getline(fileSs, fileLine)) {
+                            fileLines.push_back(fileLine);
+                        }
+
+                        // File contents scrolling reader child
+                        float searchAndHeaderHeight = 52.0f + ImGui::GetFrameHeightWithSpacing() + 30.0f;
+                        float fileViewerHeight = explorerHeight - searchAndHeaderHeight > 100.0f ? explorerHeight - searchAndHeaderHeight : 100.0f;
+                        ImGui::BeginChild("ExplorerFileViewer", ImVec2(0, fileViewerHeight), true, ImGuiWindowFlags_HorizontalScrollbar);
+                        ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(4, 2));
+                        for (size_t i = 0; i < fileLines.size(); ++i) {
+                            ImGui::TextColored(ImVec4(0.3f, 0.6f, 0.3f, 1.0f), "%4d │ ", (int)i + 1);
+                            ImGui::SameLine();
+                            RenderHighlightedLine(fileLines[i], fileNode->name, g_ExpSearchQuery);
+                        }
+                        ImGui::PopStyleVar();
+                        ImGui::EndChild();
+                    } else {
+                        ImGui::TextDisabled("File data missing.");
+                    }
+                }
+
+                ImGui::Columns(1);
+                ImGui::EndChild();
             }
             ImGui::EndChild();
         }
