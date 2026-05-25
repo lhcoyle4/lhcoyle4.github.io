@@ -2539,12 +2539,14 @@ int main(int, char**)
             else if (ImGui::IsKeyPressed(ImGuiKey_3)) { g_ActiveTab = 2; }
             else if (ImGui::IsKeyPressed(ImGuiKey_4)) { g_ActiveTab = 3; }
             else if (ImGui::IsKeyPressed(ImGuiKey_5)) { g_ActiveTab = 4; }
+            else if (ImGui::IsKeyPressed(ImGuiKey_6)) { g_ActiveTab = 5; }
         }
         if (ImGui::IsKeyPressed(ImGuiKey_F1)) { g_ActiveTab = 0; g_FocusTerminalInput = true; }
         else if (ImGui::IsKeyPressed(ImGuiKey_F2)) { g_ActiveTab = 1; }
         else if (ImGui::IsKeyPressed(ImGuiKey_F3)) { g_ActiveTab = 2; }
         else if (ImGui::IsKeyPressed(ImGuiKey_F4)) { g_ActiveTab = 3; }
         else if (ImGui::IsKeyPressed(ImGuiKey_F5)) { g_ActiveTab = 4; }
+        else if (ImGui::IsKeyPressed(ImGuiKey_F6)) { g_ActiveTab = 5; }
 
         // RENDER CENTRAL PORTFOLIO WINDOW (Locks to browser size)
         ImGui::SetNextWindowPos(ImVec2(0, 0));
@@ -2628,9 +2630,10 @@ int main(int, char**)
             " [Ctrl+2] PROJECT DIRECTORY",
             " [Ctrl+3] GIS CARTOGRAPHY",
             " [Ctrl+4] PORTFOLIO MOTD",
-            " [Ctrl+5] INTRO & CREDITS"
+            " [Ctrl+5] INTRO & CREDITS",
+            " [Ctrl+6] RESUME"
         };
-        for (int i = 0; i < 5; ++i) {
+        for (int i = 0; i < 6; ++i) {
             bool selected = (g_ActiveTab == i);
             if (selected) {
                 ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.0f, 0.5f, 0.1f, 1.0f));
@@ -4488,6 +4491,90 @@ int main(int, char**)
             ImGui::BulletText("Window Abstraction: SDL2 (Simple DirectMedia Layer)");
             ImGui::BulletText("Graphics Pipeline: OpenGL ES 3.0 / WebGL2");
             ImGui::BulletText("Platform Host:     GitHub Pages");
+        }
+        else if (g_ActiveTab == 5) {
+            // ==========================================
+            // TAB 5: RESUME
+            // ==========================================
+            ImGui::TextColored(ImVec4(0.0f, 1.0f, 0.5f, 1.0f), "LOUIS H. COYLE II");
+            ImGui::Text("GIS Analyst | OSP Engineer | Drone Surveyor | BSCS + GIS Master's Cert");
+            ImGui::Separator();
+            
+            if (ImGui::CollapsingHeader("CONTACT INFO", ImGuiTreeNodeFlags_DefaultOpen)) {
+                ImGui::BulletText("Email: lhcoyle4@gmail.com");
+                ImGui::BulletText("Phone: (207) 239-2139");
+                ImGui::BulletText("GitHub: lhcoyle4");
+                ImGui::BulletText("Location: Portland, Maine");
+            }
+
+            if (ImGui::CollapsingHeader("EDUCATION", ImGuiTreeNodeFlags_DefaultOpen)) {
+                ImGui::TextColored(ImVec4(0.0f, 0.8f, 1.0f, 1.0f), "Graduate Certificate in GIS");
+                ImGui::Text("University of Southern Maine (2024-2025) - Portland, ME");
+                ImGui::TextWrapped("Drone mapping, remote sensing, ArcGIS Pro, QGIS, Survey123, and spatial analysis.");
+                ImGui::Spacing();
+                ImGui::TextColored(ImVec4(0.0f, 0.8f, 1.0f, 1.0f), "BSc Computer Science");
+                ImGui::Text("University of Southern Maine (2021-2024) - Portland, ME");
+                ImGui::TextWrapped("Machine learning, NLP, computer architecture, operating systems, databases, web development.");
+                ImGui::Spacing();
+                ImGui::TextColored(ImVec4(0.0f, 0.8f, 1.0f, 1.0f), "Additional Education");
+                ImGui::TextWrapped("Coursework toward BS Computer Engineering at DigiPen Institute of Technology (79 credits, 2012-2015) and University of Maine (37 credits, 2015-2018).");
+            }
+
+            if (ImGui::CollapsingHeader("TECHNICAL SKILLS", ImGuiTreeNodeFlags_DefaultOpen)) {
+                ImGui::TextWrapped("Languages: Python, C, C++, SQL, Bash, x86/PIC/ARM Assembly, PowerShell, LaTeX");
+                ImGui::TextWrapped("Software & Tools: ArcGIS Pro, QGIS, Survey123 / QField, SNAP (ESA), pgRouting, O-Calc PLA");
+            }
+
+            if (ImGui::CollapsingHeader("RELEVANT EXPERIENCE", ImGuiTreeNodeFlags_DefaultOpen)) {
+                ImGui::TextColored(ImVec4(0.0f, 0.8f, 1.0f, 1.0f), "Tilson Technology Management - Portland, ME");
+                ImGui::Text("Licensing Coordinator (Mar 2020 - May 2020)");
+                ImGui::TextWrapped("Created and reviewed utility pole and underground conduit survey requests and applications. Completed and verified invoices for surveys and construction. Coordinated across Engineering, CAD, and Surveying departments to meet established permit and scheduling requirements.");
+                ImGui::Spacing();
+                ImGui::Text("OSP Desktop Coordinator (Feb 2019 - Mar 2020)");
+                ImGui::TextWrapped("Trained newly hired team members in OSP data workflows and internal tooling. Automated daily data retrieval and upload between field survey systems and an internal database API using Python, replacing a multi-hour manual process. Optimized data transfer pipeline between Engineering, CAD, and Surveying teams.");
+                ImGui::Spacing();
+                ImGui::Text("OSP Desktop Technician (Feb 2018 - Feb 2019)");
+                ImGui::TextWrapped("Learned OSP (Outside Plant) telecommunications engineering and construction terminology through internal training and independent research. Performed pole load analysis using O-Calc. Built Python scripts to automate OSP data entry workflows, reducing manual input time for the team. Completed data entry and QA functions as directed by team lead and Project Manager.");
+                
+                ImGui::Spacing();
+                ImGui::TextColored(ImVec4(0.0f, 0.8f, 1.0f, 1.0f), "University of Southern Maine - Portland, ME");
+                ImGui::Text("Grants and Contracts Desktop Technician (Oct 2021 - May 2025)");
+                ImGui::TextWrapped("Promoted to salaried position after one year as IT Specialist CL3. Maintained inventory and troubleshot assigned and loaner desktop hardware and peripherals. Provided support for web conferencing, AV, malware remediation, backups, and browser management.");
+                
+                ImGui::Spacing();
+                ImGui::TextColored(ImVec4(0.0f, 0.8f, 1.0f, 1.0f), "Other IT Experience");
+                ImGui::TextWrapped("IT Technician @ Fogler Library (2015-2016)");
+                ImGui::TextWrapped("IT Specialist @ Seacoast Security (2010-2012)");
+                ImGui::TextWrapped("IT Technician @ ResNet (2009-2010)");
+            }
+
+            if (ImGui::CollapsingHeader("UNIVERSITY PROJECTS")) {
+                ImGui::BulletText("Remote sensing analysis of rewilding of Chernobyl using historical satellite imagery with SNAP, producing a time-series NDVI analysis documenting vegetation recovery 1986-2020.");
+                ImGui::BulletText("\"Bath-tub model\" flood simulation of Portland, ME in ArcGIS Pro, modeling inundation extents and infrastructure vulnerability including culvert and stormwater locations.");
+                ImGui::BulletText("Drone survey of granite dike intrusions on Rayne's Neck, York, Maine, producing orthomosaic and DSM outputs in Pix4D documenting dike geometry and spatial extent.");
+                ImGui::BulletText("Twitter-clone social media website in Python with Django and Bulma CSS framework.");
+                ImGui::BulletText("Twitter sentiment analysis using NLTK and scikit-learn in Python.");
+                ImGui::BulletText("PubMed Naive-Bayes document classifier in Python.");
+                ImGui::BulletText("Simple top-down merchant sailing game on Windows in C.");
+                ImGui::BulletText("Interface to read PS/2 keyboard signals and display a simple text editor using FPGA.");
+                ImGui::BulletText("Synthesizer on microcontroller with no FPU using MIDI input.");
+                ImGui::BulletText("Custom path-finding and path-saving rover from breadboard to soldered board with software in C.");
+                ImGui::BulletText("High altitude weather balloon with APRS telemetry, GPS, and temperature/humidity/altitude sensors.");
+            }
+            
+            if (ImGui::CollapsingHeader("CERTIFICATIONS & INTERESTS")) {
+                ImGui::Text("Certifications:");
+                ImGui::BulletText("GIS Master's Cert - University of Southern Maine, 2025");
+                ImGui::BulletText("FAA Part 107 Remote Pilot Certificate - in progress");
+                ImGui::Spacing();
+                ImGui::Text("Highlights:");
+                ImGui::BulletText("2 Promotions in 2 Years (Desktop Tech -> OSP Coordinator -> Licensing Coordinator at Tilson Technology)");
+                ImGui::Spacing();
+                ImGui::Text("Interests:");
+                ImGui::BulletText("Cycling: Daily commuter and recreational rider; prefer to be moving rather than sitting");
+                ImGui::BulletText("Mycology: Growing oysters and lion's mane at home; studying fungi biology and ecology");
+                ImGui::BulletText("Retro Computing: Demoscene and size-coding; wrote a 28-byte PC speaker intro (intr0) for fun");
+            }
         }
 
         ImGui::EndChild();
