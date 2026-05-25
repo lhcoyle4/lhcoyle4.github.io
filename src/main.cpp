@@ -11,6 +11,7 @@
 #include <algorithm>
 #include <chrono>
 #include <sstream>
+#include <ctime>
 #include "map_data.h"
 
 
@@ -85,6 +86,26 @@ float g_NetTarget  = 5.0f;
 auto g_StartTime = std::chrono::steady_clock::now();
 bool g_MatrixMode = false;
 int g_MatrixTimer = 0;
+
+// MOTD quote pool (subset of the desktop MOTD app's DEV_TIPS)
+static const char* g_DevTips[] = {
+    "Talk is cheap. Show me the code. — Linus Torvalds",
+    "Simplicity is the ultimate sophistication. — Leonardo da Vinci",
+    "The important thing is not to stop questioning. — Albert Einstein",
+    "We are what we repeatedly do. Excellence is not an act, but a habit. — Aristotle",
+    "Out of clutter, find simplicity. In the middle of difficulty lies opportunity. — Einstein",
+    "Nature does not hurry, yet everything is accomplished. — Lao Tzu",
+    "The beginning of knowledge is the discovery of something we do not understand. — Frank Herbert",
+    "Science is a way of thinking much more than it is a body of knowledge. — Carl Sagan",
+    "We are made of starstuff. We are a way for the cosmos to know itself. — Carl Sagan",
+    "I have not failed. I've just found 10,000 ways that won't work. — Thomas Edison",
+    "GIS Tip: WGS84 (EPSG:4326) uses degrees; Web Mercator (EPSG:3857) uses meters.",
+    "Tip: git status -sb shows concise branch status with tracking info.",
+    "Tip: Alt+Left-Click + Drag anywhere to move a window. Right-Click to resize.",
+    "GIS Tip: SNAP is excellent for historical SAR and optical remote sensing analysis.",
+    "Not all those who wander are lost. — J.R.R. Tolkien",
+    "The journey of a thousand miles begins with one step. — Lao Tzu",
+};
 
 // Virtual Filesystem Globals
 FSNode g_FSRoot;
@@ -1385,7 +1406,7 @@ void InitializeVirtualFS() {
         buildWasm.is_dir = false;
         buildWasm.content = "# build_wasm.ps1\n"
                              "# Compiles the C++ ImGui codebase to WebAssembly using Emscripten\n"
-                             "Write-Host \"LCOYLE4 WASM BUILD PIPELINE\" -ForegroundColor Cyan\n"
+                             "Write-Host \"LHCOYLE4 WASM BUILD PIPELINE\" -ForegroundColor Cyan\n"
                              ". \"..\\emsdk\\emsdk_env.ps1\"\n"
                              "cmd.exe /c \"em++ -Os src/main.cpp imgui/*.cpp -s USE_SDL=2 -o index.html\"\n";
         dir.children.push_back(buildWasm);
@@ -1404,7 +1425,7 @@ void InitializeVirtualFS() {
         FSNode indexHtml;
         indexHtml.name = "index.html";
         indexHtml.is_dir = false;
-        indexHtml.content = "<!doctype html>\n<html>\n<head>\n    <title>LCOYLE4 // Systems Core V3</title>\n"
+        indexHtml.content = "<!doctype html>\n<html>\n<head>\n    <title>LHCOYLE4 // Systems Core V3</title>\n"
                              "</head>\n<body>\n    <canvas id=\"canvas\"></canvas>\n"
                              "    <script async src=\"index.js\"></script>\n</body>\n</html>\n";
         dir.children.push_back(indexHtml);
@@ -1451,7 +1472,7 @@ void InitializeVirtualFS() {
         FSNode shellHtml;
         shellHtml.name = "shell.html";
         shellHtml.is_dir = false;
-        shellHtml.content = "<!doctype html>\n<html>\n<head>\n    <title>LCOYLE4 Systems Core</title>\n"
+        shellHtml.content = "<!doctype html>\n<html>\n<head>\n    <title>LHCOYLE4 Systems Core</title>\n"
                              "</head>\n<body>\n    <div id=\"loader\">Booting...</div>\n"
                              "    <canvas id=\"canvas\"></canvas>\n</body>\n</html>\n";
         srcDir.children.push_back(shellHtml);
@@ -2375,7 +2396,7 @@ int main(int, char**)
 
     // Initial console log
     AddLog("==================================================================", ImVec4(0.0f, 0.8f, 0.2f, 1.0f));
-    AddLog(" LCOYLE4 CORE ENGINE v3.5.2 (WASM) INITIATED...", ImVec4(0.0f, 1.0f, 0.5f, 1.0f));
+    AddLog(" LHCOYLE4 CORE ENGINE v3.5.2 (WASM) INITIATED...", ImVec4(0.0f, 1.0f, 0.5f, 1.0f));
     AddLog(" COMPILING INTERFACES & OpenGL / WebGL3 SHADERS... OK", ImVec4(0.0f, 0.8f, 0.2f, 1.0f));
     AddLog(" SCANNING FOR ACTIVE PROJECTS... 5 IDENTIFIED.", ImVec4(0.0f, 0.8f, 0.2f, 1.0f));
     AddLog(" TYPE 'help' FOR LIST OF SYSTEM COMMANDS OR USE TABS TO BROWSE.", ImVec4(1.0f, 0.8f, 0.0f, 1.0f));
@@ -2444,7 +2465,7 @@ int main(int, char**)
 
         // Top Menu Bar
         if (ImGui::BeginMenuBar()) {
-            ImGui::Text("[LCOYLE4 SYSTEMS CORE] | ");
+            ImGui::Text("[LHCOYLE4 SYSTEMS CORE] | ");
             ImGui::TextDisabled("STATUS: NOMINAL | ");
             
             // Render dynamic Uptime
@@ -2471,33 +2492,39 @@ int main(int, char**)
         // Left Panel (System Info & Menu Selection)
         ImGui::BeginChild("LeftPanel", ImVec2(leftPanelWidth, 0), true);
 
-        ImGui::TextColored(ImVec4(1.0f, 0.8f, 0.0f, 1.0f), "SYS DIAGNOSTICS");
-        ImGui::Separator();
+        // ---- Mini MOTD ----
+        // Time-aware greeting + rotating quote, styled like the desktop MOTD app
+        {
+            time_t rawtime = time(nullptr);
+            struct tm* ti = localtime(&rawtime);
+            int hour = ti ? ti->tm_hour : 12;
+            const char* greeting = (hour < 12) ? "Good Morning" : (hour < 18) ? "Good Afternoon" : "Good Evening";
+            char dateStr[48];
+            if (ti) strftime(dateStr, sizeof(dateStr), "%a %b %d  %H:%M", ti);
+            else     snprintf(dateStr, sizeof(dateStr), "-- --- --  --:--");
 
-        // Mini scrolling plot lines — same data as the Hardware Plots tab,
-        // sized to fit the narrow sidebar.
-        char sideOverlay[32];
+            ImGui::TextColored(ImVec4(0.0f, 0.9f, 1.0f, 1.0f), "[ LHCOYLE4 MOTD ]");
+            ImGui::Separator();
+            ImGui::TextColored(ImVec4(0.0f, 1.0f, 0.45f, 1.0f), "%s, Louie!", greeting);
+            ImGui::SameLine();
+            ImGui::TextColored(ImVec4(0.35f, 0.65f, 0.35f, 1.0f), " %s", dateStr);
 
-        ImGui::Text("vCPU:");
-        snprintf(sideOverlay, sizeof(sideOverlay), "%.0f%%", g_CpuSmooth);
-        ImGui::PushStyleColor(ImGuiCol_PlotLines,        ImVec4(0.0f, 1.0f, 0.3f, 1.0f));
-        ImGui::PushStyleColor(ImGuiCol_PlotLinesHovered, ImVec4(0.0f, 1.0f, 0.3f, 1.0f));
-        ImGui::PlotLines("##SideCPU", g_CpuHistory.data(), (int)g_CpuHistory.size(), 0, sideOverlay, 0.0f, 100.0f, ImVec2(-FLT_MIN, 42.0f));
-        ImGui::PopStyleColor(2);
+            ImGui::Spacing();
 
-        ImGui::Text("HEAP:");
-        snprintf(sideOverlay, sizeof(sideOverlay), "%.0f%%", g_RamSmooth);
-        ImGui::PushStyleColor(ImGuiCol_PlotLines,        ImVec4(0.0f, 0.8f, 1.0f, 1.0f));
-        ImGui::PushStyleColor(ImGuiCol_PlotLinesHovered, ImVec4(0.0f, 0.8f, 1.0f, 1.0f));
-        ImGui::PlotLines("##SideRAM", g_RamHistory.data(), (int)g_RamHistory.size(), 0, sideOverlay, 0.0f, 100.0f, ImVec2(-FLT_MIN, 42.0f));
-        ImGui::PopStyleColor(2);
-
-        ImGui::Text("NET IO:");
-        snprintf(sideOverlay, sizeof(sideOverlay), "%.0f%%", g_NetSmooth);
-        ImGui::PushStyleColor(ImGuiCol_PlotLines,        ImVec4(1.0f, 0.8f, 0.0f, 1.0f));
-        ImGui::PushStyleColor(ImGuiCol_PlotLinesHovered, ImVec4(1.0f, 0.8f, 0.0f, 1.0f));
-        ImGui::PlotLines("##SideNet", g_NetworkHistory.data(), (int)g_NetworkHistory.size(), 0, sideOverlay, 0.0f, 100.0f, ImVec2(-FLT_MIN, 42.0f));
-        ImGui::PopStyleColor(2);
+            // Rotating quote — advances every 30 seconds
+            static int  s_QuoteIdx      = 0;
+            static double s_LastQuoteT  = -1.0;
+            int numTips = (int)(sizeof(g_DevTips) / sizeof(g_DevTips[0]));
+            double now = ImGui::GetTime();
+            if (s_LastQuoteT < 0.0) { s_LastQuoteT = now; s_QuoteIdx = 0; }
+            if (now - s_LastQuoteT >= 30.0) {
+                s_LastQuoteT += 30.0;
+                s_QuoteIdx = (s_QuoteIdx + 1) % numTips;
+            }
+            ImGui::PushTextWrapPos(0.0f);
+            ImGui::TextColored(ImVec4(0.55f, 0.55f, 0.55f, 1.0f), "\"%s\"", g_DevTips[s_QuoteIdx]);
+            ImGui::PopTextWrapPos();
+        }
         
         ImGui::Spacing();
         ImGui::TextColored(ImVec4(1.0f, 0.8f, 0.0f, 1.0f), "NAV COMMAND CENTER");
@@ -2508,7 +2535,7 @@ int main(int, char**)
             " [Ctrl+1] TERMINAL CONSOLE",
             " [Ctrl+2] PROJECT DIRECTORY",
             " [Ctrl+3] GIS CARTOGRAPHY",
-            " [Ctrl+4] HARDWARE PLOTS",
+            " [Ctrl+4] PORTFOLIO MOTD",
             " [Ctrl+5] INTRO & CREDITS"
         };
         for (int i = 0; i < 5; ++i) {
@@ -4074,30 +4101,131 @@ int main(int, char**)
 
         else if (g_ActiveTab == 3) {
             // ==========================================
-            // TAB 3: DIAGNOSTICS & SYSTEM METRICS
+            // TAB 3: PORTFOLIO MOTD DASHBOARD
             // ==========================================
-            ImGui::TextColored(ImVec4(0.0f, 1.0f, 1.0f, 1.0f), "WASM WORKSPACE COMPILATION METRICS & CORE LOADS");
-            ImGui::Separator();
 
-            ImGui::Text("Emscripten compiler generated memory layouts, thread pools, and processing loops:");
+            // Helper: draw an MOTD-style block-char bar
+            auto DrawMotdBar = [](float pct, int width = 20) {
+                int filled = (int)(pct / 100.0f * width + 0.5f);
+                if (filled > width) filled = width;
+                std::string bar;
+                for (int i = 0; i < filled; ++i)   bar += "\xe2\x96\x88"; // U+2588 FULL BLOCK
+                for (int i = filled; i < width; ++i) bar += "\xe2\x96\x91"; // U+2591 LIGHT SHADE
+                return bar;
+            };
+
+            // Color for bar based on percentage
+            auto BarColor = [](float pct) -> ImVec4 {
+                if (pct < 60.0f) return ImVec4(0.0f, 1.0f, 0.3f,  1.0f); // green
+                if (pct < 85.0f) return ImVec4(1.0f, 0.78f, 0.05f, 1.0f); // yellow
+                return                   ImVec4(0.9f, 0.18f, 0.10f, 1.0f); // red
+            };
+
+            // Get current time
+            time_t rawtime = time(nullptr);
+            struct tm* ti = localtime(&rawtime);
+            int hour = ti ? ti->tm_hour : 12;
+            const char* greeting = (hour < 12) ? "Good Morning" : (hour < 18) ? "Good Afternoon" : "Good Evening";
+            char dateStr[64];
+            if (ti) strftime(dateStr, sizeof(dateStr), "%A, %b %d %Y  |  %I:%M %p", ti);
+            else     snprintf(dateStr, sizeof(dateStr), "--- --- -- ----  --:-- --");
+
+            // ── Header ──────────────────────────────────────────────────────
+            ImGui::TextColored(ImVec4(0.0f, 0.9f, 1.0f, 1.0f),
+                "LHCOYLE4 // PORTFOLIO DASHBOARD");
+            ImGui::Separator();
+            ImGui::TextColored(ImVec4(0.0f, 1.0f, 0.45f, 1.0f), "%s, Louie!  ", greeting);
+            ImGui::SameLine();
+            ImGui::TextColored(ImVec4(0.35f, 0.65f, 0.35f, 1.0f), "%s", dateStr);
             ImGui::Spacing();
 
-            // Real-time scrolling plot lines
-            float plotWidth = io.DisplaySize.x - leftPanelWidth - 60.0f;
-            if (plotWidth < 300.0f) plotWidth = 300.0f;
+            // ── System Health ────────────────────────────────────────────────
+            ImGui::TextColored(ImVec4(0.0f, 0.9f, 1.0f, 1.0f), "[ System Health ]");
+            ImGui::Separator();
 
-            ImGui::Text("Virtual CPU Execution Load (fluctuating %%):");
-            ImGui::PlotLines("##CPUPlot", g_CpuHistory.data(), (int)g_CpuHistory.size(), 0, nullptr, 0.0f, 100.0f, ImVec2(plotWidth, 110.0f));
+            // CPU
+            {
+                std::string bar = DrawMotdBar(g_CpuSmooth);
+                ImGui::Text("  CPU  ["); ImGui::SameLine(0, 0);
+                ImGui::TextColored(BarColor(g_CpuSmooth), "%s", bar.c_str()); ImGui::SameLine(0, 0);
+                ImGui::Text("]"); ImGui::SameLine();
+                ImGui::TextColored(BarColor(g_CpuSmooth), " %.1f%%", g_CpuSmooth);
+            }
+            // HEAP
+            {
+                std::string bar = DrawMotdBar(g_RamSmooth);
+                ImGui::Text("  HEAP ["); ImGui::SameLine(0, 0);
+                ImGui::TextColored(BarColor(g_RamSmooth), "%s", bar.c_str()); ImGui::SameLine(0, 0);
+                ImGui::Text("]"); ImGui::SameLine();
+                ImGui::TextColored(BarColor(g_RamSmooth), " %.1f%%", g_RamSmooth);
+            }
+            // NET IO
+            {
+                std::string bar = DrawMotdBar(g_NetSmooth);
+                ImGui::Text("  NET  ["); ImGui::SameLine(0, 0);
+                ImGui::TextColored(ImVec4(1.0f, 0.78f, 0.05f, 1.0f), "%s", bar.c_str()); ImGui::SameLine(0, 0);
+                ImGui::Text("]"); ImGui::SameLine();
+                ImGui::TextColored(ImVec4(1.0f, 0.78f, 0.05f, 1.0f), " %.1f%%", g_NetSmooth);
+            }
 
-            ImGui::Text("Virtual Heap Allocation Size (MB):");
+            ImGui::Spacing();
+
+            // Scrolling plot lines (compact)
+            float plotW = ImGui::GetContentRegionAvail().x;
+            ImGui::PushStyleColor(ImGuiCol_PlotLines, ImVec4(0.0f, 1.0f, 0.3f, 1.0f));
+            ImGui::PlotLines("##MCPU", g_CpuHistory.data(), (int)g_CpuHistory.size(), 0, "vCPU", 0.0f, 100.0f, ImVec2(plotW, 55.0f));
+            ImGui::PopStyleColor();
             ImGui::PushStyleColor(ImGuiCol_PlotLines, ImVec4(0.0f, 0.8f, 1.0f, 1.0f));
-            ImGui::PlotLines("##RAMPlot", g_RamHistory.data(), (int)g_RamHistory.size(), 0, nullptr, 0.0f, 100.0f, ImVec2(plotWidth, 110.0f));
-            ImGui::PopStyleColor(1); // reset
+            ImGui::PlotLines("##MRAM", g_RamHistory.data(), (int)g_RamHistory.size(), 0, "HEAP", 0.0f, 100.0f, ImVec2(plotW, 55.0f));
+            ImGui::PopStyleColor();
+            ImGui::PushStyleColor(ImGuiCol_PlotLines, ImVec4(1.0f, 0.78f, 0.05f, 1.0f));
+            ImGui::PlotLines("##MNET", g_NetworkHistory.data(), (int)g_NetworkHistory.size(), 0, "NET", 0.0f, 100.0f, ImVec2(plotW, 55.0f));
+            ImGui::PopStyleColor();
 
-            ImGui::Text("WASM Port Pipeline Network IO (B/s):");
-            ImGui::PushStyleColor(ImGuiCol_PlotLines, ImVec4(1.0f, 0.8f, 0.0f, 1.0f));
-            ImGui::PlotLines("##NetPlot", g_NetworkHistory.data(), (int)g_NetworkHistory.size(), 0, nullptr, 0.0f, 100.0f, ImVec2(plotWidth, 110.0f));
-            ImGui::PopStyleColor(1); // reset
+            ImGui::Spacing();
+
+            // ── Sandbox Repos ────────────────────────────────────────────────
+            ImGui::TextColored(ImVec4(0.0f, 0.9f, 1.0f, 1.0f), "[ Sandbox Repos ]");
+            ImGui::Separator();
+
+            struct RepoInfo { const char* name; const char* branch; const char* status; const char* remote; };
+            static const RepoInfo repos[] = {
+                { "lhcoyle4.github.io", "master",  "Clean",    "Synced"    },
+                { "asteroids_vectrex",  "master",  "Clean",    "Synced"    },
+                { "motd",               "master",  "Clean",    "Synced"    },
+                { "alt_drag_resize",    "master",  "Clean",    "Synced"    },
+                { "terminal_launcher",  "master",  "Clean",    "Synced"    },
+            };
+            ImGui::TextColored(ImVec4(0.5f, 0.5f, 0.5f, 1.0f),
+                "  %-22s  %-10s  %-8s  %s", "Repo", "Branch", "Status", "Remote");
+            for (auto& r : repos) {
+                ImGui::Text("  •"); ImGui::SameLine();
+                ImGui::TextColored(ImVec4(0.0f, 1.0f, 0.45f, 1.0f), "%-22s", r.name); ImGui::SameLine();
+                ImGui::TextColored(ImVec4(0.5f, 0.8f, 0.5f,  1.0f), "  %-10s", r.branch); ImGui::SameLine();
+                ImGui::TextColored(ImVec4(0.0f, 1.0f, 0.3f,  1.0f), "  %-8s", r.status); ImGui::SameLine();
+                ImGui::TextColored(ImVec4(0.0f, 1.0f, 0.3f,  1.0f), "  %s", r.remote);
+            }
+
+            ImGui::Spacing();
+
+            // ── Quote / Tip ─────────────────────────────────────────────────
+            ImGui::TextColored(ImVec4(0.0f, 0.9f, 1.0f, 1.0f), "[ Status & Insights ]");
+            ImGui::Separator();
+            {
+                static int  s_FullQuoteIdx   = 0;
+                static double s_FullQuoteT   = -1.0;
+                int numTips = (int)(sizeof(g_DevTips) / sizeof(g_DevTips[0]));
+                double now2 = ImGui::GetTime();
+                if (s_FullQuoteT < 0.0) { s_FullQuoteT = now2; s_FullQuoteIdx = (numTips / 2) % numTips; }
+                if (now2 - s_FullQuoteT >= 30.0) {
+                    s_FullQuoteT += 30.0;
+                    s_FullQuoteIdx = (s_FullQuoteIdx + 1) % numTips;
+                }
+                ImGui::Text("  Tip/Quote: "); ImGui::SameLine(0, 0);
+                ImGui::PushTextWrapPos(0.0f);
+                ImGui::TextColored(ImVec4(0.55f, 0.55f, 0.55f, 1.0f), "\"%s\"", g_DevTips[s_FullQuoteIdx]);
+                ImGui::PopTextWrapPos();
+            }
         }
         else if (g_ActiveTab == 4) {
             // ==========================================
