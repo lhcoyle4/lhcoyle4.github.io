@@ -97,6 +97,13 @@ int g_ViSearchMatchIdx = -1;
 int g_ViScrollToLine = -1;
 bool g_FocusViInput = false;
 
+// Tab Completion Globals
+std::string g_LastCompletedBuf = "";
+bool g_TabCompleting = false;
+std::vector<std::string> g_TabMatches;
+int g_TabMatchIdx = -1;
+int g_TabBaseLen = 0;
+
 // Matrix Falling Code Visualizer Globals
 struct MatrixColumn {
     float y;
@@ -1080,9 +1087,113 @@ void ExecuteCommand(const std::string& cmdLine) {
     }
 }
 
-// Input callback to handle history
+// Helper function to handle tab completion
+void HandleTabCompletion(ImGuiInputTextCallbackData* data) {
+    std::string bufStr(data->Buf, data->BufTextLen);
+    
+    // Check if we are continuing a cycling completion
+    if (g_TabCompleting && !g_TabMatches.empty() && bufStr == g_LastCompletedBuf) {
+        g_TabMatchIdx = (g_TabMatchIdx + 1) % g_TabMatches.size();
+        std::string match = g_TabMatches[g_TabMatchIdx];
+        
+        // Replace from the base index to the end of the buffer
+        data->DeleteChars(g_TabBaseLen, data->BufTextLen - g_TabBaseLen);
+        data->InsertChars(g_TabBaseLen, match.c_str());
+        
+        g_LastCompletedBuf = std::string(data->Buf, data->BufTextLen);
+        return;
+    }
+    
+    // Starting a new completion: reset variables
+    g_TabCompleting = false;
+    g_TabMatches.clear();
+    g_TabMatchIdx = -1;
+    
+    // Find the word being completed (the word after the last space)
+    int lastSpace = -1;
+    for (int i = data->BufTextLen - 1; i >= 0; --i) {
+        if (data->Buf[i] == ' ') {
+            lastSpace = i;
+            break;
+        }
+    }
+    
+    std::string prefix = "";
+    int wordStart = 0;
+    bool isCommand = false;
+    
+    if (lastSpace == -1) {
+        // First word in buffer: completing a command name
+        prefix = bufStr;
+        wordStart = 0;
+        isCommand = true;
+    } else {
+        // Subsequent word in buffer: completing a file/directory path
+        prefix = bufStr.substr(lastSpace + 1);
+        wordStart = lastSpace + 1;
+        isCommand = false;
+    }
+    
+    std::vector<std::string> candidates;
+    
+    if (isCommand) {
+        // Command list
+        std::vector<std::string> commands = {
+            "help", "about", "projects", "gis", "neofetch", "matrix",
+            "clear", "cls", "ls", "cd", "cat", "grep", "vi", "vim"
+        };
+        for (const auto& cmd : commands) {
+            if (cmd.size() >= prefix.size() && cmd.substr(0, prefix.size()) == prefix) {
+                candidates.push_back(cmd);
+            }
+        }
+    } else {
+        // File or directory completion
+        // Split prefix into folder path and prefix name (e.g. projects/alt -> projects/ and alt)
+        size_t lastSlash = prefix.find_last_of('/');
+        std::string dirPart = "";
+        std::string filePrefix = prefix;
+        if (lastSlash != std::string::npos) {
+            dirPart = prefix.substr(0, lastSlash + 1);
+            filePrefix = prefix.substr(lastSlash + 1);
+        }
+        
+        // Resolve directory node path
+        std::vector<std::string> dummyParts;
+        FSNode* dirNode = ResolvePath(dirPart, dummyParts);
+        if (dirNode && dirNode->is_dir) {
+            for (const auto& child : dirNode->children) {
+                if (child.name.size() >= filePrefix.size() && child.name.substr(0, filePrefix.size()) == filePrefix) {
+                    std::string completion = dirPart + child.name;
+                    if (child.is_dir) {
+                        completion += "/";
+                    }
+                    candidates.push_back(completion);
+                }
+            }
+        }
+    }
+    
+    if (!candidates.empty()) {
+        g_TabMatches = candidates;
+        g_TabMatchIdx = 0;
+        g_TabCompleting = true;
+        g_TabBaseLen = wordStart;
+        
+        std::string match = g_TabMatches[0];
+        data->DeleteChars(g_TabBaseLen, data->BufTextLen - g_TabBaseLen);
+        data->InsertChars(g_TabBaseLen, match.c_str());
+        
+        g_LastCompletedBuf = std::string(data->Buf, data->BufTextLen);
+    }
+}
+
+// Input callback to handle history and tab completion
 int ConsoleInputCallback(ImGuiInputTextCallbackData* data) {
-    if (data->EventFlag == ImGuiInputTextFlags_CallbackHistory) {
+    if (data->EventFlag == ImGuiInputTextFlags_CallbackCompletion) {
+        HandleTabCompletion(data);
+    }
+    else if (data->EventFlag == ImGuiInputTextFlags_CallbackHistory) {
         int prevHistoryPos = g_HistoryPos;
         if (data->EventKey == ImGuiKey_UpArrow) {
             if (g_HistoryPos == -1)
@@ -1737,7 +1848,7 @@ int main(int, char**)
                 ImGui::TextColored(ImVec4(0.90f, 0.90f, 0.90f, 1.00f), "$ ");
                 ImGui::SameLine();
                 
-                ImGuiInputTextFlags inputFlags = ImGuiInputTextFlags_EnterReturnsTrue | ImGuiInputTextFlags_CallbackHistory;
+                ImGuiInputTextFlags inputFlags = ImGuiInputTextFlags_EnterReturnsTrue | ImGuiInputTextFlags_CallbackHistory | ImGuiInputTextFlags_CallbackCompletion;
                 
                 ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0, 0, 0, 0));
                 ImGui::PushStyleColor(ImGuiCol_FrameBgHovered, ImVec4(0, 0, 0, 0));
