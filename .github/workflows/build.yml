@@ -32,7 +32,7 @@ jobs:
           version: 3.1.60
           actions-cache-folder: emsdk
 
-      - name: Build WASM
+      - name: Build Portfolio WASM
         run: |
           em++ -Os src/main.cpp \
             imgui/imgui.cpp imgui/imgui_draw.cpp imgui/imgui_demo.cpp \
@@ -50,10 +50,30 @@ jobs:
             --shell-file src/shell.html \
             -o index.html
 
+      - name: Build PERMADRIFT game WASM
+        run: |
+          git clone --depth 1 https://github.com/lhcoyle4/asteroids_vectrex.git game_src
+          mkdir -p permadrift
+          emcc -std=c99 -O2 \
+            -I game_src/include \
+            -s USE_SDL=2 \
+            -s USE_SDL_MIXER=2 \
+            -s ALLOW_MEMORY_GROWTH=1 \
+            -s INITIAL_MEMORY=67108864 \
+            -s STACK_SIZE=5242880 \
+            -s SDL2_GL_ENABLE_GET_PROC_ADDRESS=1 \
+            --shell-file game_src/src/wasm_shell.html \
+            -o permadrift/index.html \
+            game_src/src/main.c \
+            game_src/src/vector_graphics.c \
+            game_src/src/game.c \
+            game_src/src/vector_font.c \
+            game_src/src/audio.c
+
       - name: Commit built WASM back to master
         run: |
           git config user.name  "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add index.html index.js index.wasm
+          git add index.html index.js index.wasm permadrift/
           git diff --cached --quiet && echo "No WASM changes" || \
-            git commit -m "CI: rebuild portfolio WASM" && git push
+            git commit -m "CI: rebuild portfolio WASM + PERMADRIFT game" && git push

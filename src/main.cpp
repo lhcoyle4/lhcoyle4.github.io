@@ -141,6 +141,113 @@ struct MatrixColumn {
 };
 std::vector<MatrixColumn> s_MatrixColumns;
 
+// Star Wars ASCII Movie Globals
+struct StarWarsFrame {
+    int delay;
+    std::string lines[13];
+};
+std::vector<StarWarsFrame> g_StarWarsFrames;
+bool g_StarWarsMovieMode = false;
+int g_StarWarsCurrentFrameIdx = 0;
+double g_StarWarsFrameShowTime = 0.0;
+bool g_StarWarsMovieLoaded = false;
+bool g_StarWarsMovieLoading = false;
+
+#ifdef __EMSCRIPTEN__
+#define KEEP_EXPORT EMSCRIPTEN_KEEPALIVE
+#else
+#define KEEP_EXPORT
+#include <fstream>
+#endif
+
+void ParseStarWarsMovie(const std::string& rawText) {
+    g_StarWarsFrames.clear();
+    std::vector<std::string> lines;
+    std::string currentLine;
+    for (char c : rawText) {
+        if (c == '\n') {
+            if (!currentLine.empty() && currentLine.back() == '\r') {
+                currentLine.pop_back();
+            }
+            lines.push_back(currentLine);
+            currentLine.clear();
+        } else if (c != '\0') {
+            currentLine.push_back(c);
+        }
+    }
+    if (!currentLine.empty()) {
+        if (currentLine.back() == '\r') currentLine.pop_back();
+        lines.push_back(currentLine);
+    }
+
+    for (size_t i = 0; i + 13 < lines.size(); i += 14) {
+        StarWarsFrame frame;
+        int delay = 1;
+        if (!lines[i].empty()) {
+            int val = 0;
+            bool hasDigits = false;
+            for (char digit : lines[i]) {
+                if (digit >= '0' && digit <= '9') {
+                    val = val * 10 + (digit - '0');
+                    hasDigits = true;
+                }
+            }
+            if (hasDigits) delay = val;
+        }
+        frame.delay = delay;
+        for (int j = 0; j < 13; ++j) {
+            frame.lines[j] = lines[i + 1 + j];
+        }
+        g_StarWarsFrames.push_back(frame);
+    }
+    g_StarWarsMovieLoaded = true;
+    g_StarWarsMovieLoading = false;
+}
+
+extern "C" {
+    KEEP_EXPORT void LoadStarWarsMovieData(const char* data) {
+        if (data) {
+            std::string text(data);
+            ParseStarWarsMovie(text);
+        }
+    }
+}
+
+void StartLoadingStarWarsMovie() {
+    if (g_StarWarsMovieLoaded || g_StarWarsMovieLoading) return;
+    g_StarWarsMovieLoading = true;
+#ifdef __EMSCRIPTEN__
+    EM_ASM({
+        fetch('starwars.txt')
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('HTTP status ' + response.status);
+                }
+                return response.text();
+            })
+            .then(text => {
+                var length = lengthBytesUTF8(text) + 1;
+                var buffer = _malloc(length);
+                stringToUTF8(text, buffer, length);
+                _LoadStarWarsMovieData(buffer);
+                _free(buffer);
+            })
+            .catch(err => {
+                console.error('Failed to fetch starwars.txt:', err);
+            });
+    });
+#else
+    std::ifstream f("starwars.txt", std::ios::in | std::ios::binary);
+    if (f) {
+        std::string content((std::istreambuf_iterator<char>(f)), std::istreambuf_iterator<char>());
+        f.close();
+        LoadStarWarsMovieData(content.c_str());
+    } else {
+        g_StarWarsMovieLoading = false;
+    }
+#endif
+}
+
 // Explorer State Globals
 static int g_ExpSelectedProj = -1;
 static std::vector<std::string> g_ExpCurrentDirParts;
@@ -353,6 +460,40 @@ void OpenGitHubLink(const std::string& url) {
     emscripten_run_script(jsCmd.c_str());
 #else
     printf("Opening URL: %s\n", url.c_str());
+#endif
+}
+
+// Launch PERMADRIFT as a fullscreen iframe overlay within this page
+void LaunchPermadrift() {
+#ifdef __EMSCRIPTEN__
+    EM_ASM({
+        if (document.getElementById('pd-ov')) return;
+        var ov = document.createElement('div');
+        ov.id = 'pd-ov';
+        ov.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;z-index:9999;background:#000;';
+        var btn = document.createElement('button');
+        btn.textContent = 'EXIT PERMADRIFT';
+        btn.style.cssText = 'position:absolute;top:8px;right:8px;z-index:10000;background:rgba(0,15,30,0.9);color:#70d8ff;border:1px solid #2a6080;font-family:monospace;font-size:12px;padding:5px 10px;cursor:pointer;letter-spacing:0.08em;';
+        btn.onclick = function() { closePD(); };
+        var fr = document.createElement('iframe');
+        fr.src = './permadrift/';
+        fr.style.cssText = 'width:100%;height:100%;border:none;display:block;';
+        fr.allow = 'autoplay';
+        ov.appendChild(fr);
+        ov.appendChild(btn);
+        document.body.appendChild(ov);
+        function closePD() {
+            var o = document.getElementById('pd-ov');
+            if (o) document.body.removeChild(o);
+            window.removeEventListener('message', pdMsg);
+        }
+        function pdMsg(e) {
+            if (e.data === 'permadrift_exit') closePD();
+        }
+        window.addEventListener('message', pdMsg);
+    });
+#else
+    printf("PERMADRIFT: would launch iframe overlay\n");
 #endif
 }
 
@@ -1382,6 +1523,7 @@ void ExecuteCommand(const std::string& cmdLine) {
         AddLog("  projects        - Switch to project directory tab.");
         AddLog("  gis             - Switch to GIS Cartography map tab.");
         AddLog("  permadrift      - Launch PERMADRIFT drift-ship game in browser.");
+        AddLog("  starwars        - Run local Star Wars Episode IV ASCII movie (Esc to exit).");
     }
     else if (lowerCmd == "about") {
         AddLog("====================================================", ImVec4(0.0f, 1.0f, 0.0f, 1.0f));
@@ -1428,6 +1570,16 @@ void ExecuteCommand(const std::string& cmdLine) {
     }
     else if (lowerCmd == "matrix") {
         g_MatrixMode = true;
+    }
+    else if (lowerCmd == "starwars") {
+        if (!g_StarWarsMovieLoaded) {
+            AddLog("Star Wars ASCIIMATION is still loading... Please wait and try again in a few seconds.", ImVec4(1.0f, 0.8f, 0.0f, 1.0f));
+            StartLoadingStarWarsMovie();
+        } else {
+            g_StarWarsMovieMode = true;
+            g_StarWarsCurrentFrameIdx = 0;
+            g_StarWarsFrameShowTime = ImGui::GetTime();
+        }
     }
     else if (lowerCmd == "clear" || lowerCmd == "cls") {
         g_ConsoleLog.clear();
@@ -1602,15 +1754,15 @@ void ExecuteCommand(const std::string& cmdLine) {
         AddLog("  Collect relics. Survive the void. Achieve Chronicle.");
         AddLog("  [C] Triskelion Burst  [V] Phase Shift  [B] Nova Shell");
         AddLog("====================================================", ImVec4(0.35f, 0.8f, 1.0f, 1.0f));
-        AddLog("Launching PERMADRIFT in browser...", ImVec4(0.9f, 0.9f, 0.0f, 1.0f));
-        OpenGitHubLink("https://lhcoyle4.github.io/asteroids_vectrex/");
+        AddLog("Launching PERMADRIFT...", ImVec4(0.9f, 0.9f, 0.0f, 1.0f));
+        LaunchPermadrift();
     }
     else {
         AddLog("Command not recognized: '" + cmd + "'. Type 'help' for available options.", ImVec4(1.0f, 0.2f, 0.2f, 1.0f));
     }
 
     // Add clean separation spacing after command outputs (except screen control commands)
-    if (lowerCmd != "clear" && lowerCmd != "cls" && lowerCmd != "matrix") {
+    if (lowerCmd != "clear" && lowerCmd != "cls" && lowerCmd != "matrix" && lowerCmd != "starwars") {
         AddLog("");
     }
 }
@@ -1734,7 +1886,7 @@ void HandleTabCompletion(ImGuiInputTextCallbackData* data) {
         // Command list
         std::vector<std::string> commands = {
             "help", "about", "projects", "gis", "neofetch", "matrix",
-            "clear", "cls", "ls", "cd", "cat", "grep", "vi", "vim"
+            "clear", "cls", "ls", "cd", "cat", "grep", "vi", "vim", "starwars"
         };
         for (const auto& cmd : commands) {
             if (cmd.size() >= prefix.size() && cmd.substr(0, prefix.size()) == prefix) {
@@ -2175,6 +2327,7 @@ int main(int, char**)
     InitializeProjects();
     InitializeMapData();
     InitializeVirtualFS();
+    StartLoadingStarWarsMovie();
     
     // Set up radar pins (coordinates in Portland, ME region)
     g_RadarPins.push_back(ImVec2(100, 100)); // Portland Downtown
@@ -2337,7 +2490,69 @@ int main(int, char**)
             // ==========================================
             // TAB 0: TERMINAL CONSOLE
             // ==========================================
-            if (g_MatrixMode) {
+            if (g_StarWarsMovieMode) {
+                ImGui::TextColored(ImVec4(0.9f, 0.9f, 0.0f, 1.0f), "STAR WARS EPISODE IV: A NEW HOPE (ASCIIMATION). PRESS ESC TO EXIT.");
+                ImGui::Separator();
+
+                if (!g_StarWarsFrames.empty()) {
+                    double now = ImGui::GetTime();
+                    double elapsed = now - g_StarWarsFrameShowTime;
+                    const auto& currentFrame = g_StarWarsFrames[g_StarWarsCurrentFrameIdx];
+                    double frameDuration = currentFrame.delay * 0.067;
+
+                    while (elapsed >= frameDuration) {
+                        g_StarWarsCurrentFrameIdx++;
+                        if (g_StarWarsCurrentFrameIdx >= (int)g_StarWarsFrames.size()) {
+                            g_StarWarsCurrentFrameIdx = 0;
+                        }
+                        g_StarWarsFrameShowTime += frameDuration;
+
+                        const auto& nextFrame = g_StarWarsFrames[g_StarWarsCurrentFrameIdx];
+                        frameDuration = nextFrame.delay * 0.067;
+                        elapsed = now - g_StarWarsFrameShowTime;
+                    }
+
+                    ImGui::BeginChild("StarWarsMovieCanvas", ImVec2(0, 0), false, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
+                    
+                    const auto& frame = g_StarWarsFrames[g_StarWarsCurrentFrameIdx];
+                    float maxLineWidth = 0.0f;
+                    for (int j = 0; j < 13; ++j) {
+                        float w = ImGui::CalcTextSize(frame.lines[j].c_str()).x;
+                        if (w > maxLineWidth) maxLineWidth = w;
+                    }
+                    float textHeight = ImGui::GetTextLineHeightWithSpacing() * 13;
+                    ImVec2 availSize = ImGui::GetContentRegionAvail();
+
+                    float startX = (availSize.x - maxLineWidth) * 0.5f;
+                    float startY = (availSize.y - textHeight) * 0.5f;
+                    if (startX < 0.0f) startX = 0.0f;
+                    if (startY < 0.0f) startY = 0.0f;
+
+                    ImGui::SetCursorPos(ImVec2(startX, startY));
+                    ImGui::BeginGroup();
+                    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.85f, 0.85f, 0.85f, 1.0f));
+                    for (int j = 0; j < 13; ++j) {
+                        if (frame.lines[j].empty()) {
+                            ImGui::NewLine();
+                        } else {
+                            ImGui::TextUnformatted(frame.lines[j].c_str());
+                        }
+                    }
+                    ImGui::PopStyleColor();
+                    ImGui::EndGroup();
+                    
+                    ImGui::EndChild();
+                } else {
+                    ImGui::TextColored(ImVec4(1.0f, 0.3f, 0.3f, 1.0f), "Error: No movie frames loaded.");
+                }
+
+                if (ImGui::IsKeyPressed(ImGuiKey_Escape) || 
+                    ((ImGui::IsKeyDown(ImGuiKey_LeftCtrl) || ImGui::IsKeyDown(ImGuiKey_RightCtrl)) && ImGui::IsKeyPressed(ImGuiKey_C))) {
+                    g_StarWarsMovieMode = false;
+                    AddLog("Stopped Star Wars ASCIIMATION.", ImVec4(0.0f, 1.0f, 0.3f, 1.0f));
+                    g_FocusTerminalInput = true;
+                }
+            } else if (g_MatrixMode) {
                 ImGui::TextColored(ImVec4(0.0f, 1.0f, 0.3f, 1.0f), "MATRIX CODE WATERFALL ACTIVE. PRESS ESC OR CTRL+C TO TERMINATE.");
                 ImGui::Separator();
                 
@@ -2630,8 +2845,8 @@ int main(int, char**)
                     ImGui::PushStyleColor(ImGuiCol_Button,        ImVec4(0.02f, 0.04f, 0.18f, 1.0f));
                     ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.00f, 0.15f, 0.45f, 1.0f));
                     ImGui::PushStyleColor(ImGuiCol_Text,          ImVec4(0.40f, 0.85f, 1.00f, 1.0f));
-                    if (ImGui::Button("[>  PLAY PERMADRIFT IN BROWSER  <]", ImVec2(-FLT_MIN, 48.0f))) {
-                        OpenGitHubLink("https://lhcoyle4.github.io/asteroids_vectrex/");
+                    if (ImGui::Button("[>  PLAY PERMADRIFT  <]", ImVec2(-FLT_MIN, 48.0f))) {
+                        LaunchPermadrift();
                     }
                     ImGui::PopStyleColor(3);
                 }
@@ -3403,10 +3618,10 @@ int main(int, char**)
                     float dy = io.MousePos.y - p.y;
                     bool isHovered = hovered && (dx >= -5.0f * iconScale && dx <= 5.0f * iconScale && dy >= -8.0f * iconScale && dy <= 8.0f * iconScale);
                     if (isHovered) {
-                        ImGui::SetTooltip("%s\nClick to search on Google.", sub.name);
+                        ImGui::SetTooltip("%s\nClick for AI Overview.", sub.name);
                         // Prevent click action during click-and-drag panning using MouseDragMaxDistanceSqr
                         if (ImGui::IsMouseReleased(ImGuiMouseButton_Left) && io.MouseDragMaxDistanceSqr[0] < 16.0f) {
-                            SearchGoogle(std::string(sub.name));
+                            OpenSgeOverview(std::string(sub.name), "Substation");
                         }
                     }
                     
@@ -3453,10 +3668,10 @@ int main(int, char**)
                     float dy = io.MousePos.y - p.y;
                     bool isHovered = hovered && (dx >= -4.0f * scale && dx <= 3.0f * scale && dy >= -6.0f * scale && dy <= 4.0f * scale);
                     if (isHovered) {
-                        ImGui::SetTooltip("%s\nFuel: %s | Capacity: %.1f MW\nClick to search on Google.", pp.name, pp.fuel, pp.capacity);
+                        ImGui::SetTooltip("%s\nFuel: %s | Capacity: %.1f MW\nClick for AI Overview.", pp.name, pp.fuel, pp.capacity);
                         // Prevent click action during click-and-drag panning using MouseDragMaxDistanceSqr
                         if (ImGui::IsMouseReleased(ImGuiMouseButton_Left) && io.MouseDragMaxDistanceSqr[0] < 16.0f) {
-                            SearchGoogle(std::string(pp.name) + " Power Station");
+                            OpenSgeOverview(std::string(pp.name), "Power Station");
                         }
                     }
                     
@@ -3508,10 +3723,10 @@ int main(int, char**)
                     float dy = io.MousePos.y - p.y;
                     bool isIconHovered = hovered && (dx >= -4.0f * s && dx <= 4.0f * s && dy >= -10.0f * s && dy <= 6.0f * s);
                     if (isIconHovered) {
-                        ImGui::SetTooltip("%s\nUSGS Telemetry Station.\nClick to select & search on Google.", city.name.c_str());
+                        ImGui::SetTooltip("%s\nUSGS Telemetry Station.\nClick for AI Overview.", city.name.c_str());
                         if (ImGui::IsMouseReleased(ImGuiMouseButton_Left) && io.MouseDragMaxDistanceSqr[0] < 16.0f) {
                             g_SelectedCity = (int)i;
-                            SearchGoogle(city.name + " USGS Station");
+                            OpenSgeOverview(city.name, "USGS Station");
                         }
                     }
  
@@ -3764,7 +3979,7 @@ int main(int, char**)
                     
                     ImGui::Spacing();
                     
-                    // Sources footer (Google Search simulation cards)
+                    // Sources footer (clickable links to external references)
                     ImGui::TextColored(ImVec4(0.7f, 0.7f, 0.7f, 1.0f), "Sources:");
                     ImGui::SameLine();
                     
