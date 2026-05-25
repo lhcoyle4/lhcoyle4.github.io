@@ -32,6 +32,13 @@ struct LogLine {
     ImVec4 color;
 };
 
+struct FSNode {
+    std::string name;
+    bool is_dir;
+    std::string content;
+    std::vector<FSNode> children;
+};
+
 struct Project {
     std::string name;
     std::string language;
@@ -64,6 +71,37 @@ std::vector<float> g_NetworkHistory;
 auto g_StartTime = std::chrono::steady_clock::now();
 bool g_MatrixMode = false;
 int g_MatrixTimer = 0;
+
+// Virtual Filesystem Globals
+FSNode g_FSRoot;
+std::vector<std::string> g_CurrentDirParts;
+bool g_FocusTerminalInput = true;
+
+// Vi State Globals
+bool g_ViMode = false;
+std::string g_ViFilename = "";
+std::string g_ViContent = "";
+std::vector<std::string> g_ViLines;
+int g_ViScrollLine = 0;
+bool g_ViCommandActive = false;
+char g_ViCommandChar = ':';
+char g_ViCmdInput[128] = "";
+std::string g_ViSearchQuery = "";
+int g_ViSearchMatchIdx = -1;
+int g_ViScrollToLine = -1;
+bool g_FocusViInput = false;
+
+// Matrix Falling Code Visualizer Globals
+struct MatrixColumn {
+    float y;
+    float speed;
+    int length;
+    std::vector<char> chars;
+    float nextChangeTime;
+    bool active;
+    float spawnDelay;
+};
+std::vector<MatrixColumn> s_MatrixColumns;
 
 
 const float Lake_Superior_Lon[] = { -92.1f, -90.0f, -87.0f, -88.0f, -92.1f };
@@ -284,34 +322,382 @@ void InitializeMapData() {
     g_MapCities.push_back({ "New York, NY", -74.00f, 40.71f, "USGS Station E-1. Estuary tide level monitoring. Status: NOMINAL." });
     g_MapCities.push_back({ "Washington, DC", -77.03f, 38.90f, "National Map HQ. Central server catalog synced. Status: ONLINE." });
 }
+// Helper to get current path string
+std::string GetCurrentPathString() {
+    if (g_CurrentDirParts.empty()) return "/";
+    std::string s = "";
+    for (const auto& part : g_CurrentDirParts) {
+        s += "/" + part;
+    }
+    return s;
+}
 
+// Find a node by traversing directory parts
+FSNode* FindNodeFromParts(const std::vector<std::string>& parts) {
+    const FSNode* curr = &g_FSRoot;
+    for (const auto& part : parts) {
+        bool found = false;
+        for (const auto& child : curr->children) {
+            if (child.name == part) {
+                curr = &child;
+                found = true;
+                break;
+            }
+        }
+        if (!found) return nullptr;
+    }
+    return const_cast<FSNode*>(curr);
+}
+
+// Resolve relative or absolute path to an FSNode
+FSNode* ResolvePath(const std::string& path, std::vector<std::string>& outParts) {
+    std::vector<std::string> parts;
+    if (path.empty()) {
+        outParts = g_CurrentDirParts;
+        return FindNodeFromParts(outParts);
+    }
+    if (path[0] == '/') {
+        parts = {};
+    } else {
+        parts = g_CurrentDirParts;
+    }
+
+    std::stringstream ss(path);
+    std::string segment;
+    while (std::getline(ss, segment, '/')) {
+        if (segment.empty() || segment == ".") {
+            continue;
+        }
+        if (segment == "..") {
+            if (!parts.empty()) {
+                parts.pop_back();
+            }
+        } else {
+            parts.push_back(segment);
+        }
+    }
+
+    FSNode* node = FindNodeFromParts(parts);
+    if (node) {
+        outParts = parts;
+    }
+    return node;
+}
+
+// Initialize Virtual Filesystem
+void InitializeVirtualFS() {
+    g_FSRoot.name = "";
+    g_FSRoot.is_dir = true;
+
+    FSNode projects;
+    projects.name = "projects";
+    projects.is_dir = true;
+
+    // alt_drag_resizer_C
+    {
+        FSNode dir;
+        dir.name = "alt_drag_resizer_C";
+        dir.is_dir = true;
+
+        FSNode readme;
+        readme.name = "README.md";
+        readme.is_dir = false;
+        readme.content = "# alt_drag_resizer_C\n"
+                         "A lightweight, highly efficient Windows desktop utility that enables Linux-style 'Alt+Drag' window resizing and moving.\n\n"
+                         "## Key Features\n"
+                         "- Written in pure C++ / Win32 API to achieve zero overhead.\n"
+                         "- Listens to mouse/keyboard hooks to move and resize windows dynamically.\n"
+                         "- Sub-millisecond latency for immediate responsiveness.\n"
+                         "- Precompiled executable sizes under 600 KB.";
+        dir.children.push_back(readme);
+
+        FSNode mainCpp;
+        mainCpp.name = "main.cpp";
+        mainCpp.is_dir = false;
+        mainCpp.content = "#define WIN32_LEAN_AND_MEAN\n"
+                          "#include <windows.h>\n\n"
+                          "HHOOK g_hMouseHook = NULL;\n"
+                          "HWND g_hDragWindow = NULL;\n"
+                          "POINT g_PtStart;\n"
+                          "RECT g_RcStart;\n\n"
+                          "LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wParam, LPARAM lParam) {\n"
+                          "    if (nCode >= 0) {\n"
+                          "        MSLLHOOKSTRUCT* pMouse = (MSLLHOOKSTRUCT*)lParam;\n"
+                          "        if (wParam == WM_MOUSEMOVE && (GetAsyncKeyState(VK_MENU) & 0x8000)) {\n"
+                          "            int dx = pMouse->pt.x - g_PtStart.x;\n"
+                          "            int dy = pMouse->pt.y - g_PtStart.y;\n"
+                          "            SetWindowPos(g_hDragWindow, NULL, g_RcStart.left + dx, g_RcStart.top + dy, 0, 0, SWP_NOSIZE | SWP_NOZORDER);\n"
+                          "        }\n"
+                          "    }\n"
+                          "    return CallNextHookEx(g_hMouseHook, nCode, wParam, lParam);\n"
+                          "}\n\n"
+                          "int WINAPI WinMain(HINSTANCE hInst, HINSTANCE, LPSTR, int) {\n"
+                          "    g_hMouseHook = SetWindowsHookEx(WH_MOUSE_LL, LowLevelMouseProc, hInst, 0);\n"
+                          "    MSG msg;\n"
+                          "    while (GetMessage(&msg, NULL, 0, 0)) {\n"
+                          "        TranslateMessage(&msg);\n"
+                          "        DispatchMessage(&msg);\n"
+                          "    }\n"
+                          "    UnhookWindowsHookEx(g_hMouseHook);\n"
+                          "    return 0;\n"
+                          "}";
+        dir.children.push_back(mainCpp);
+        projects.children.push_back(dir);
+    }
+
+    // terminal_launcher_C
+    {
+        FSNode dir;
+        dir.name = "terminal_launcher_C";
+        dir.is_dir = true;
+
+        FSNode readme;
+        readme.name = "README.md";
+        readme.is_dir = false;
+        readme.content = "# terminal_launcher_C\n"
+                         "A hotkey-driven system tray application that launches configured shells and environments with sub-millisecond dispatching.\n\n"
+                         "## Key Features\n"
+                         "- Built with pure Win32 API, featuring custom vector-drawn system tray icon.\n"
+                         "- Asynchronous process spawning preserving window hierarchy.\n"
+                         "- Configuration scanner parsing global shortcuts from config.json.";
+        dir.children.push_back(readme);
+
+        FSNode configJson;
+        configJson.name = "config.json";
+        configJson.is_dir = false;
+        configJson.content = "{\n"
+                             "  \"global_shortcuts\": [\n"
+                             "    {\n"
+                             "      \"hotkey\": \"Ctrl+Alt+T\",\n"
+                             "      \"command\": \"powershell.exe\",\n"
+                             "      \"working_directory\": \"C:\\\\Users\\\\lhcoy\"\n"
+                             "    },\n"
+                             "    {\n"
+                             "      \"hotkey\": \"Ctrl+Alt+C\",\n"
+                             "      \"command\": \"cmd.exe\",\n"
+                             "      \"working_directory\": \"C:\\\\\"\n"
+                             "    },\n"
+                             "    {\n"
+                             "      \"hotkey\": \"Ctrl+Alt+W\",\n"
+                             "      \"command\": \"wsl.exe\",\n"
+                             "      \"working_directory\": \"~\"\n"
+                             "    }\n"
+                             "  ]\n"
+                             "}";
+        dir.children.push_back(configJson);
+        projects.children.push_back(dir);
+    }
+
+    // lens_ocr_C
+    {
+        FSNode dir;
+        dir.name = "lens_ocr_C";
+        dir.is_dir = true;
+
+        FSNode readme;
+        readme.name = "README.md";
+        readme.is_dir = false;
+        readme.content = "# lens_ocr_C\n"
+                         "A dual-process screen snipping OCR utility with seamless Google Search query integration.\n\n"
+                         "## Key Features\n"
+                         "- Handles high-performance screenshot capture in C++ using GDI+.\n"
+                         "- Orchestrates background Windows OCR runtime APIs in a C# sub-module.";
+        dir.children.push_back(readme);
+
+        FSNode ocrCs;
+        ocrCs.name = "LensOCR.cs";
+        ocrCs.is_dir = false;
+        ocrCs.content = "using System;\n"
+                        "using System.IO;\n"
+                        "using System.Threading.Tasks;\n"
+                        "using Windows.Graphics.Imaging;\n"
+                        "using Windows.Media.Ocr;\n\n"
+                        "namespace LensOcr\n"
+                        "{\n"
+                        "    class Program\n"
+                        "    {\n"
+                        "        static async Task Main(string[] args)\n"
+                        "        {\n"
+                        "            if (args.Length < 1) return;\n"
+                        "            string imagePath = args[0];\n"
+                        "            var file = await Windows.Storage.StorageFile.GetFileFromPathAsync(imagePath);\n"
+                        "            using (var stream = await file.OpenAsync(Windows.Storage.FileAccessMode.Read))\n"
+                        "            {\n"
+                        "                var decoder = await BitmapDecoder.CreateAsync(stream);\n"
+                        "                var softwareBitmap = await decoder.GetSoftwareBitmapAsync();\n"
+                        "                var ocrEngine = OcrEngine.TryCreateFromUserProfileLanguages();\n"
+                        "                var ocrResult = await ocrEngine.RecognizeAsync(softwareBitmap);\n"
+                        "                Console.WriteLine(ocrResult.Text);\n"
+                        "            }\n"
+                        "        }\n"
+                        "    }\n"
+                        "}";
+        dir.children.push_back(ocrCs);
+        projects.children.push_back(dir);
+    }
+
+    // asteroids_vectrex
+    {
+        FSNode dir;
+        dir.name = "asteroids_vectrex";
+        dir.is_dir = true;
+
+        FSNode readme;
+        readme.name = "README.md";
+        readme.is_dir = false;
+        readme.content = "# asteroids_vectrex\n"
+                         "A retro vector-graphics clone of the classic Asteroids arcade game, built for web and native environments.\n\n"
+                         "## Key Features\n"
+                         "- Simulates high-fidelity vector CRT glow effects.\n"
+                         "- Employs precise 2D collision geometry.\n"
+                         "- Smooth particle engines rendering asteroid fracturing.";
+        dir.children.push_back(readme);
+
+        FSNode gameJs;
+        gameJs.name = "game.js";
+        gameJs.is_dir = false;
+        gameJs.content = "class VectorShip {\n"
+                         "    constructor(x, y) {\n"
+                         "        this.x = x;\n"
+                         "        this.y = y;\n"
+                         "        this.angle = 0;\n"
+                         "        this.velocity = { x: 0, y: 0 };\n"
+                         "    }\n"
+                         "    thrust() {\n"
+                         "        this.velocity.x += Math.cos(this.angle) * 0.1;\n"
+                         "        this.velocity.y += Math.sin(this.angle) * 0.1;\n"
+                         "    }\n"
+                         "    draw(ctx) {\n"
+                         "        ctx.strokeStyle = '#00ff44';\n"
+                         "        ctx.shadowBlur = 15;\n"
+                         "        ctx.shadowColor = '#00ff44';\n"
+                         "        ctx.beginPath();\n"
+                         "        ctx.moveTo(this.x + Math.cos(this.angle) * 10, this.y + Math.sin(this.angle) * 10);\n"
+                         "        ctx.lineTo(this.x + Math.cos(this.angle + 2.5) * 8, this.y + Math.sin(this.angle + 2.5) * 8);\n"
+                         "        ctx.lineTo(this.x + Math.cos(this.angle - 2.5) * 8, this.y + Math.sin(this.angle - 2.5) * 8);\n"
+                         "        ctx.closePath();\n"
+                         "        ctx.stroke();\n"
+                         "    }\n"
+                         "}";
+        dir.children.push_back(gameJs);
+        projects.children.push_back(dir);
+    }
+
+    // joust_C
+    {
+        FSNode dir;
+        dir.name = "joust_C";
+        dir.is_dir = true;
+
+        FSNode readme;
+        readme.name = "README.md";
+        readme.is_dir = false;
+        readme.content = "# joust_C\n"
+                         "A pure C remake of the classic arcade hit Joust, utilizing raw SDL2 for graphics, sound, and platform abstraction.\n\n"
+                         "## Key Features\n"
+                         "- Written entirely in C99, bypassing modern heavy runtime layers.\n"
+                         "- Direct graphics rendering through WebGL-backed SDL textures.\n"
+                         "- Nostalgic synth physics and audio pipelines.";
+        dir.children.push_back(readme);
+
+        FSNode mainC;
+        mainC.name = "main.c";
+        mainC.is_dir = false;
+        mainC.content = "#include <SDL.h>\n"
+                       "#include <stdbool.h>\n\n"
+                       "int main(int argc, char* argv[]) {\n"
+                       "    if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO) < 0) return -1;\n"
+                       "    SDL_Window* win = SDL_CreateWindow(\"Joust C\", 100, 100, 640, 480, 0);\n"
+                       "    SDL_Renderer* ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);\n"
+                       "    bool running = true;\n"
+                       "    SDL_Event e;\n"
+                       "    while (running) {\n"
+                       "        while (SDL_PollEvent(&e)) {\n"
+                       "            if (e.type == SDL_QUIT) running = false;\n"
+                       "        }\n"
+                       "        SDL_SetRenderDrawColor(ren, 0, 0, 0, 255);\n"
+                       "        SDL_RenderClear(ren);\n"
+                       "        SDL_RenderPresent(ren);\n"
+                       "    }\n"
+                       "    SDL_DestroyRenderer(ren);\n"
+                       "    SDL_DestroyWindow(win);\n"
+                       "    SDL_Quit();\n"
+                       "    return 0;\n"
+                       "}";
+        dir.children.push_back(mainC);
+        projects.children.push_back(dir);
+    }
+
+    g_FSRoot.children.push_back(projects);
+
+    FSNode bio;
+    bio.name = "bio.txt";
+    bio.is_dir = false;
+    bio.content = "LOUIE COYLE - SOFTWARE ENGINEER & GIS SPECIALIST\n"
+                  "====================================================\n"
+                  "Background: BSCS (Computer Science) + GIS Master's Certificate.\n"
+                  "Location:   Portland, ME.\n"
+                  "Focus:      Systems programming, automation, and spatial analysis.\n"
+                  "Skills:     C, C++, Python, Javascript, Rust, Win32 API, OpenGL,\n"
+                  "            QGIS, ArcGIS, LiDAR processing, Drone mapping.\n"
+                  "Philosophy: Mechanics sympathy. Bypassing bloated abstractions\n"
+                  "            to build responsive, zero-dependency tools.";
+    g_FSRoot.children.push_back(bio);
+
+    FSNode contact;
+    contact.name = "contact.txt";
+    contact.is_dir = false;
+    contact.content = "CONTACT CHANNELS\n"
+                      "================\n"
+                      "GitHub:     https://github.com/lhcoyle4\n"
+                      "Location:   Portland, Maine, USA\n"
+                      "Telemetry:  ONLINE\n\n"
+                      "Send an inquiry to inspect the grid or commission project work.";
+    g_FSRoot.children.push_back(contact);
+
+    FSNode skills;
+    skills.name = "skills.txt";
+    skills.is_dir = false;
+    skills.content = "TECHNICAL SPECIALIZATION GRID\n"
+                      "=============================\n"
+                      "1. Systems: C, C++, Rust, x86 Assembly, Win32 API, POSIX\n"
+                      "2. GIS:     GDAL/OGR, PDAL, QGIS, ArcGIS Pro, Python ArcPy, RTK GNSS\n"
+                      "3. Graphics: OpenGL, WebGL, GLSL, Dear ImGui Canvas Shaders\n"
+                      "4. Automation: Python, Bash scripting, PowerShell, CI/CD Actions";
+    g_FSRoot.children.push_back(skills);
+}
 
 // Terminal commands execution logic
 void ExecuteCommand(const std::string& cmdLine) {
-    // Add command to history
     g_CmdHistory.push_back(cmdLine);
     g_HistoryPos = -1;
 
-    // Echo command
-    AddLog("> " + cmdLine, ImVec4(0.0f, 0.8f, 1.0f, 1.0f));
+    std::vector<std::string> args;
+    std::stringstream ss(cmdLine);
+    std::string arg;
+    while (ss >> arg) {
+        args.push_back(arg);
+    }
 
-    // Parse command name and args
-    std::string cmd = cmdLine;
-    cmd.erase(0, cmd.find_first_not_of(" \t"));
-    cmd.erase(cmd.find_last_not_of(" \t") + 1);
-    
+    if (args.empty()) return;
+
+    std::string cmd = args[0];
     std::string lowerCmd = cmd;
     std::transform(lowerCmd.begin(), lowerCmd.end(), lowerCmd.begin(), ::tolower);
 
     if (lowerCmd == "help") {
-        AddLog("Available Commands:");
-        AddLog("  help       - Shows list of commands.");
-        AddLog("  about      - Display biographical profile.");
-        AddLog("  projects   - Show C++ / low-level projects.");
-        AddLog("  gis        - List spatial intelligence & cartography work.");
-        AddLog("  neofetch   - Display system summary configuration.");
-        AddLog("  matrix     - Toggle the falling code visualizer.");
-        AddLog("  clear      - Clear the console scrollback.");
+        AddLog("Available Shell Commands:");
+        AddLog("  ls [dir]        - List directory contents.");
+        AddLog("  cd [dir]        - Change current directory.");
+        AddLog("  cat [file]      - Print file contents.");
+        AddLog("  grep [pat] [f]  - Search file for pattern.");
+        AddLog("  vi [file]       - Open read-only file viewer (Esc or :q to exit).");
+        AddLog("  clear / cls     - Clear console screen.");
+        AddLog("  matrix          - Start movie-accurate code waterfall (Esc to exit).");
+        AddLog("  neofetch        - Display system configuration summary.");
+        AddLog("  about           - Biographical profile.");
+        AddLog("  projects        - Switch to project directory tab.");
+        AddLog("  gis             - Switch to GIS Cartography map tab.");
     }
     else if (lowerCmd == "about") {
         AddLog("====================================================", ImVec4(0.0f, 1.0f, 0.0f, 1.0f));
@@ -327,7 +713,7 @@ void ExecuteCommand(const std::string& cmdLine) {
         AddLog("====================================================", ImVec4(0.0f, 1.0f, 0.0f, 1.0f));
     }
     else if (lowerCmd == "projects") {
-        g_ActiveTab = 1; // Switch tab
+        g_ActiveTab = 1;
         AddLog("Opening Project Directory tab...", ImVec4(0.9f, 0.9f, 0.0f, 1.0f));
         AddLog("Use the tabs or double-click items to view details.");
         for (const auto& proj : g_Projects) {
@@ -335,7 +721,7 @@ void ExecuteCommand(const std::string& cmdLine) {
         }
     }
     else if (lowerCmd == "gis") {
-        g_ActiveTab = 2; // Switch tab
+        g_ActiveTab = 2;
         AddLog("Accessing GIS Cartography tab...", ImVec4(0.9f, 0.9f, 0.0f, 1.0f));
         AddLog("Loading raster grid and coordinates...");
     }
@@ -357,11 +743,135 @@ void ExecuteCommand(const std::string& cmdLine) {
         AddLog("                 -:=/;;//=:`             ", ImVec4(0.0f, 1.0f, 0.5f, 1.0f));
     }
     else if (lowerCmd == "matrix") {
-        g_MatrixMode = !g_MatrixMode;
-        AddLog(g_MatrixMode ? "Initializing code fall stream... OK" : "Closing stream matrix... OK", ImVec4(0.0f, 1.0f, 0.5f, 1.0f));
+        g_MatrixMode = true;
     }
-    else if (lowerCmd == "clear") {
+    else if (lowerCmd == "clear" || lowerCmd == "cls") {
         g_ConsoleLog.clear();
+    }
+    else if (lowerCmd == "ls") {
+        std::string targetPath = "";
+        if (args.size() > 1) {
+            targetPath = args[1];
+        }
+        std::vector<std::string> dummyParts;
+        FSNode* node = ResolvePath(targetPath, dummyParts);
+        if (!node) {
+            AddLog("ls: cannot access '" + targetPath + "': No such file or directory", ImVec4(1.0f, 0.3f, 0.3f, 1.0f));
+        } else if (!node->is_dir) {
+            AddLog(node->name, ImVec4(0.0f, 1.0f, 0.3f, 1.0f));
+        } else {
+            for (const auto& child : node->children) {
+                if (child.is_dir) {
+                    AddLog(child.name + "/", ImVec4(0.0f, 0.7f, 1.0f, 1.0f)); // Folder in blue/cyan
+                } else {
+                    AddLog(child.name, ImVec4(0.0f, 1.0f, 0.3f, 1.0f)); // File in green
+                }
+            }
+        }
+    }
+    else if (lowerCmd == "cd") {
+        std::string target = "/";
+        if (args.size() > 1) {
+            target = args[1];
+        }
+        std::vector<std::string> outParts;
+        FSNode* node = ResolvePath(target, outParts);
+        if (!node) {
+            AddLog("cd: no such file or directory: " + target, ImVec4(1.0f, 0.3f, 0.3f, 1.0f));
+        } else if (!node->is_dir) {
+            AddLog("cd: not a directory: " + target, ImVec4(1.0f, 0.3f, 0.3f, 1.0f));
+        } else {
+            g_CurrentDirParts = outParts;
+        }
+    }
+    else if (lowerCmd == "cat") {
+        if (args.size() < 2) {
+            AddLog("cat: missing file operand", ImVec4(1.0f, 0.3f, 0.3f, 1.0f));
+        } else {
+            std::string filepath = args[1];
+            std::vector<std::string> dummyParts;
+            FSNode* node = ResolvePath(filepath, dummyParts);
+            if (!node) {
+                AddLog("cat: " + filepath + ": No such file or directory", ImVec4(1.0f, 0.3f, 0.3f, 1.0f));
+            } else if (node->is_dir) {
+                AddLog("cat: " + filepath + ": Is a directory", ImVec4(1.0f, 0.3f, 0.3f, 1.0f));
+            } else {
+                std::stringstream fileSs(node->content);
+                std::string fileLine;
+                while (std::getline(fileSs, fileLine)) {
+                    AddLog(fileLine, ImVec4(0.0f, 1.0f, 0.3f, 1.0f));
+                }
+            }
+        }
+    }
+    else if (lowerCmd == "grep") {
+        if (args.size() < 3) {
+            AddLog("Usage: grep [pattern] [file]", ImVec4(1.0f, 0.8f, 0.0f, 1.0f));
+        } else {
+            std::string pattern = args[1];
+            std::string filepath = args[2];
+            std::vector<std::string> dummyParts;
+            FSNode* node = ResolvePath(filepath, dummyParts);
+            if (!node) {
+                AddLog("grep: " + filepath + ": No such file or directory", ImVec4(1.0f, 0.3f, 0.3f, 1.0f));
+            } else if (node->is_dir) {
+                AddLog("grep: " + filepath + ": Is a directory", ImVec4(1.0f, 0.3f, 0.3f, 1.0f));
+            } else {
+                std::string lowerPattern = pattern;
+                std::transform(lowerPattern.begin(), lowerPattern.end(), lowerPattern.begin(), ::tolower);
+                
+                std::stringstream fileSs(node->content);
+                std::string fileLine;
+                int lineNum = 1;
+                bool matchFound = false;
+                while (std::getline(fileSs, fileLine)) {
+                    std::string lowerLine = fileLine;
+                    std::transform(lowerLine.begin(), lowerLine.end(), lowerLine.begin(), ::tolower);
+                    if (lowerLine.find(lowerPattern) != std::string::npos) {
+                        std::string prefix = std::to_string(lineNum) + ": ";
+                        AddLog(prefix + fileLine, ImVec4(0.0f, 1.0f, 0.3f, 1.0f));
+                        matchFound = true;
+                    }
+                    lineNum++;
+                }
+                if (!matchFound) {
+                    AddLog("No matches found for '" + pattern + "'", ImVec4(0.0f, 0.6f, 0.1f, 1.0f));
+                }
+            }
+        }
+    }
+    else if (lowerCmd == "vi" || lowerCmd == "vim") {
+        if (args.size() < 2) {
+            AddLog("Usage: vi [file]", ImVec4(1.0f, 0.8f, 0.0f, 1.0f));
+        } else {
+            std::string filepath = args[1];
+            std::vector<std::string> dummyParts;
+            FSNode* node = ResolvePath(filepath, dummyParts);
+            if (!node) {
+                AddLog("vi: " + filepath + ": No such file or directory", ImVec4(1.0f, 0.3f, 0.3f, 1.0f));
+            } else if (node->is_dir) {
+                AddLog("vi: " + filepath + ": Is a directory", ImVec4(1.0f, 0.3f, 0.3f, 1.0f));
+            } else {
+                g_ViMode = true;
+                g_ViFilename = node->name;
+                g_ViContent = node->content;
+                g_ViLines.clear();
+                
+                std::stringstream fileSs(node->content);
+                std::string fileLine;
+                while (std::getline(fileSs, fileLine)) {
+                    g_ViLines.push_back(fileLine);
+                }
+                
+                g_ViScrollLine = 0;
+                g_ViCommandActive = false;
+                g_ViSearchQuery = "";
+                g_ViSearchMatchIdx = -1;
+                g_ViScrollToLine = -1;
+                strcpy(g_ViCmdInput, "");
+                g_FocusViInput = false;
+            }
+        }
     }
     else {
         AddLog("Command not recognized: '" + cmd + "'. Type 'help' for available options.", ImVec4(1.0f, 0.2f, 0.2f, 1.0f));
@@ -415,21 +925,236 @@ void UpdateHistoryPlots() {
     if (g_NetworkHistory.size() > 100) g_NetworkHistory.erase(g_NetworkHistory.begin());
 }
 
-// Matrix falling code generator
-void UpdateMatrixRain() {
-    g_MatrixTimer++;
-    if (g_MatrixTimer % 3 == 0) {
-        std::string matrixChars = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ$#@%&*()[]{}";
-        std::string line = "";
-        for (int i = 0; i < 40; ++i) {
-            if (rand() % 10 == 0) {
-                line += " ";
-            } else {
-                line += matrixChars[rand() % matrixChars.length()];
-                line += " ";
+// Print string with search query highlighted
+void PrintWithSearchHighlight(const std::string& str, const ImVec4& color, const ImVec4& searchColor, const std::string& searchQuery) {
+    if (searchQuery.empty()) {
+        ImGui::TextColored(color, "%s", str.c_str());
+        ImGui::SameLine(0, 0);
+        return;
+    }
+
+    size_t pos = 0;
+    std::string lowerStr = str;
+    std::string lowerQuery = searchQuery;
+    std::transform(lowerStr.begin(), lowerStr.end(), lowerStr.begin(), ::tolower);
+    std::transform(lowerQuery.begin(), lowerQuery.end(), lowerQuery.begin(), ::tolower);
+
+    size_t lastPos = 0;
+    while ((pos = lowerStr.find(lowerQuery, lastPos)) != std::string::npos) {
+        if (pos > lastPos) {
+            std::string before = str.substr(lastPos, pos - lastPos);
+            ImGui::TextColored(color, "%s", before.c_str());
+            ImGui::SameLine(0, 0);
+        }
+
+        std::string match = str.substr(pos, searchQuery.length());
+        ImGui::TextColored(searchColor, "%s", match.c_str());
+        ImGui::SameLine(0, 0);
+
+        lastPos = pos + searchQuery.length();
+    }
+
+    if (lastPos < str.length()) {
+        std::string remaining = str.substr(lastPos);
+        ImGui::TextColored(color, "%s", remaining.c_str());
+        ImGui::SameLine(0, 0);
+    }
+}
+
+// Render highlighted line based on file extension
+void RenderHighlightedLine(const std::string& line, const std::string& filename, const std::string& searchQuery) {
+    if (line.empty()) {
+        ImGui::TextUnformatted("");
+        return;
+    }
+
+    std::string ext = "";
+    size_t dotIdx = filename.find_last_of('.');
+    if (dotIdx != std::string::npos) ext = filename.substr(dotIdx + 1);
+
+    ImVec4 colNormal = ImVec4(0.0f, 1.0f, 0.3f, 1.0f); // Matrix Green
+    ImVec4 colComment = ImVec4(0.35f, 0.65f, 0.35f, 1.0f);
+    ImVec4 colKeyword = ImVec4(0.0f, 0.7f, 1.0f, 1.0f);
+    ImVec4 colString = ImVec4(0.9f, 0.6f, 0.3f, 1.0f);
+    ImVec4 colNumber = ImVec4(0.8f, 0.5f, 0.9f, 1.0f);
+    ImVec4 colSearch = ImVec4(1.0f, 1.0f, 0.0f, 1.0f); // Yellow
+
+    if (ext == "md" || ext == "txt") {
+        if (line[0] == '#') {
+            PrintWithSearchHighlight(line, colKeyword, colSearch, searchQuery);
+            ImGui::TextUnformatted("");
+            return;
+        }
+        PrintWithSearchHighlight(line, colNormal, colSearch, searchQuery);
+        ImGui::TextUnformatted("");
+        return;
+    }
+
+    int i = 0;
+    int len = (int)line.length();
+    size_t commentPos = line.find("//");
+    if (ext == "json") commentPos = std::string::npos;
+
+    while (i < len) {
+        if (commentPos != std::string::npos && (size_t)i == commentPos) {
+            std::string commentStr = line.substr(i);
+            PrintWithSearchHighlight(commentStr, colComment, colSearch, searchQuery);
+            break;
+        }
+
+        char c = line[i];
+
+        if (c == '"' || c == '\'') {
+            char quoteChar = c;
+            std::string strLit = "";
+            strLit += c;
+            i++;
+            while (i < len) {
+                strLit += line[i];
+                if (line[i] == quoteChar && line[i - 1] != '\\') {
+                    i++;
+                    break;
+                }
+                i++;
+            }
+            PrintWithSearchHighlight(strLit, colString, colSearch, searchQuery);
+            continue;
+        }
+
+        if (c == '#') {
+            std::string preproc = "";
+            while (i < len && !isspace(line[i]) && line[i] != '<' && line[i] != '"') {
+                preproc += line[i];
+                i++;
+            }
+            PrintWithSearchHighlight(preproc, colNumber, colSearch, searchQuery);
+            continue;
+        }
+
+        if (isdigit(c)) {
+            std::string num = "";
+            while (i < len && (isdigit(line[i]) || line[i] == '.' || line[i] == 'f' || line[i] == 'x')) {
+                num += line[i];
+                i++;
+            }
+            PrintWithSearchHighlight(num, colNumber, colSearch, searchQuery);
+            continue;
+        }
+
+        if (isalpha(c) || c == '_') {
+            std::string ident = "";
+            while (i < len && (isalnum(line[i]) || line[i] == '_')) {
+                ident += line[i];
+                i++;
+            }
+
+            bool isKw = false;
+            static const std::vector<std::string> keywords = {
+                "class", "struct", "void", "int", "float", "double", "bool", "if", "else", 
+                "while", "for", "return", "public", "private", "static", "using", "namespace", 
+                "const", "new", "delete", "true", "false", "null", "function", "var", "let", 
+                "import", "export", "from", "char", "unsigned", "define", "include"
+            };
+            if (std::find(keywords.begin(), keywords.end(), ident) != keywords.end()) {
+                isKw = true;
+            }
+
+            PrintWithSearchHighlight(ident, isKw ? colKeyword : colNormal, colSearch, searchQuery);
+            continue;
+        }
+
+        std::string punc = "";
+        punc += c;
+        PrintWithSearchHighlight(punc, colNormal, colSearch, searchQuery);
+        i++;
+    }
+    ImGui::TextUnformatted("");
+}
+
+// Fullscreen-accurate Matrix falling code visualizer
+void UpdateAndRenderMatrix(ImDrawList* drawList, ImVec2 canvasPos, ImVec2 canvasSize) {
+    int colWidth = 14;
+    int numCols = (int)canvasSize.x / colWidth;
+    if (numCols < 1) numCols = 1;
+
+    if (s_MatrixColumns.size() != (size_t)numCols) {
+        s_MatrixColumns.resize(numCols);
+        for (int i = 0; i < numCols; ++i) {
+            s_MatrixColumns[i].active = false;
+            s_MatrixColumns[i].y = -(rand() % 400 + 50);
+            s_MatrixColumns[i].speed = 120.0f + (rand() % 200);
+            s_MatrixColumns[i].length = 8 + (rand() % 18);
+            s_MatrixColumns[i].nextChangeTime = 0.0f;
+            s_MatrixColumns[i].spawnDelay = (rand() % 100) / 20.0f;
+            
+            s_MatrixColumns[i].chars.resize(s_MatrixColumns[i].length);
+            std::string matrixChars = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ$#@%&*()[]{}";
+            for (int k = 0; k < s_MatrixColumns[i].length; ++k) {
+                s_MatrixColumns[i].chars[k] = matrixChars[rand() % matrixChars.length()];
             }
         }
-        AddLog(line, ImVec4(0.0f, (float)(80 + rand() % 175) / 255.0f, 0.0f, 1.0f));
+    }
+
+    drawList->AddRectFilled(canvasPos, ImVec2(canvasPos.x + canvasSize.x, canvasPos.y + canvasSize.y), IM_COL32(0, 0, 0, 255));
+
+    float deltaTime = ImGui::GetIO().DeltaTime;
+    if (deltaTime > 0.1f) deltaTime = 0.1f;
+
+    std::string matrixChars = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ$#@%&*()[]{}";
+    float glyphHeight = 15.0f;
+
+    for (int i = 0; i < numCols; ++i) {
+        auto& col = s_MatrixColumns[i];
+        
+        if (col.spawnDelay > 0.0f) {
+            col.spawnDelay -= deltaTime;
+            continue;
+        }
+
+        col.y += col.speed * deltaTime;
+
+        col.nextChangeTime -= deltaTime;
+        if (col.nextChangeTime <= 0.0f) {
+            col.nextChangeTime = 0.05f + (rand() % 10) / 100.0f;
+            int numChanges = 1 + rand() % 3;
+            for (int n = 0; n < numChanges; ++n) {
+                int idx = rand() % col.length;
+                col.chars[idx] = matrixChars[rand() % matrixChars.length()];
+            }
+        }
+
+        float x = canvasPos.x + i * colWidth + 2.0f;
+        for (int k = 0; k < col.length; ++k) {
+            float y = col.y - k * glyphHeight;
+            if (y < canvasPos.y - glyphHeight || y > canvasPos.y + canvasSize.y) {
+                continue;
+            }
+
+            char charBuf[2] = { col.chars[k], '\0' };
+            ImU32 color;
+            if (k == 0) {
+                color = IM_COL32(210, 255, 210, 255); // Head (White-green)
+            } else {
+                float fade = (float)(col.length - k) / (float)col.length;
+                int alpha = (int)(255.0f * fade);
+                int green = (int)(255.0f * fade);
+                int red_blue = (int)(50.0f * fade);
+                color = IM_COL32(red_blue, green, red_blue, alpha);
+            }
+
+            drawList->AddText(ImGui::GetFont(), glyphHeight, ImVec2(x, y), color, charBuf);
+        }
+
+        if (col.y - col.length * glyphHeight > canvasSize.y) {
+            col.y = -glyphHeight;
+            col.speed = 120.0f + (rand() % 200);
+            col.length = 8 + (rand() % 18);
+            col.chars.resize(col.length);
+            for (int k = 0; k < col.length; ++k) {
+                col.chars[k] = matrixChars[rand() % matrixChars.length()];
+            }
+            col.spawnDelay = (rand() % 50) / 20.0f;
+        }
     }
 }
 
@@ -494,6 +1219,7 @@ int main(int, char**)
     // Load initial structures
     InitializeProjects();
     InitializeMapData();
+    InitializeVirtualFS();
     
     // Set up radar pins (coordinates in Portland, ME region)
     g_RadarPins.push_back(ImVec2(100, 100)); // Portland Downtown
@@ -541,9 +1267,6 @@ int main(int, char**)
 
         // Update calculations
         UpdateHistoryPlots();
-        if (g_MatrixMode) {
-            UpdateMatrixRain();
-        }
 
         // Start frame
         ImGui_ImplOpenGL3_NewFrame();
@@ -645,39 +1368,189 @@ int main(int, char**)
             // ==========================================
             // TAB 0: TERMINAL CONSOLE
             // ==========================================
-            ImGui::TextColored(ImVec4(0.0f, 1.0f, 1.0f, 1.0f), "SYSTEM TERMINAL SHELL (Type 'help' for instructions)");
-            ImGui::Separator();
+            if (g_MatrixMode) {
+                ImGui::TextColored(ImVec4(0.0f, 1.0f, 0.3f, 1.0f), "MATRIX CODE WATERFALL ACTIVE. PRESS ESC OR CTRL+C TO TERMINATE.");
+                ImGui::Separator();
+                
+                ImDrawList* drawList = ImGui::GetWindowDrawList();
+                ImVec2 canvasPos = ImGui::GetCursorScreenPos();
+                ImVec2 canvasSize = ImGui::GetContentRegionAvail();
+                if (canvasSize.y < 100.0f) canvasSize.y = 100.0f;
+                
+                UpdateAndRenderMatrix(drawList, canvasPos, canvasSize);
+                ImGui::Dummy(canvasSize);
 
-            // Terminal log scrollback area
-            float footerHeightToReserve = ImGui::GetStyle().ItemSpacing.y + ImGui::GetFrameHeightWithSpacing(); 
-            ImGui::BeginChild("ScrollingRegion", ImVec2(0, -footerHeightToReserve), false, ImGuiWindowFlags_HorizontalScrollbar);
-            
-            // Stark border
-            ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(4, 1)); // Tight spacing
-            for (const auto& item : g_ConsoleLog) {
-                ImGui::TextColored(item.color, "%s", item.text.c_str());
-            }
-            if (g_TerminalScrollToBottom) {
-                ImGui::SetScrollHereY(1.0f);
-                g_TerminalScrollToBottom = false;
-            }
-            ImGui::PopStyleVar();
-            ImGui::EndChild();
-
-            ImGui::Separator();
-
-            // Command input line
-            ImGuiInputTextFlags inputFlags = ImGuiInputTextFlags_EnterReturnsTrue | ImGuiInputTextFlags_CallbackHistory;
-            ImGui::PushItemWidth(-FLT_MIN);
-            if (ImGui::InputText("##Input", g_InputBuf, IM_ARRAYSIZE(g_InputBuf), inputFlags, &ConsoleInputCallback)) {
-                std::string inputStr(g_InputBuf);
-                if (!inputStr.empty()) {
-                    ExecuteCommand(inputStr);
+                if (ImGui::IsKeyPressed(ImGuiKey_Escape) || 
+                    ((ImGui::IsKeyDown(ImGuiKey_LeftCtrl) || ImGui::IsKeyDown(ImGuiKey_RightCtrl)) && ImGui::IsKeyPressed(ImGuiKey_C))) {
+                    g_MatrixMode = false;
+                    AddLog("^C", ImVec4(0.0f, 1.0f, 0.3f, 1.0f));
+                    g_FocusTerminalInput = true;
                 }
-                strcpy(g_InputBuf, ""); // Clear buffer
-                ImGui::SetKeyboardFocusHere(-1); // Auto focus input field again
+            } else if (g_ViMode) {
+                // Vi Reader View
+                ImGui::TextColored(ImVec4(1.0f, 0.8f, 0.0f, 1.0f), "~ [VI] - %s [READ-ONLY] - %d lines ~", g_ViFilename.c_str(), (int)g_ViLines.size());
+                ImGui::Separator();
+                
+                float statusHeight = ImGui::GetFrameHeightWithSpacing() + 10.0f;
+                ImGui::BeginChild("ViScrollingContent", ImVec2(0, -statusHeight), false, ImGuiWindowFlags_HorizontalScrollbar);
+                
+                if (g_ViScrollToLine >= 0) {
+                    float line_height = ImGui::GetTextLineHeightWithSpacing();
+                    ImGui::SetScrollY(g_ViScrollToLine * line_height);
+                    g_ViScrollToLine = -1;
+                }
+
+                ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(4, 2));
+                for (size_t i = 0; i < g_ViLines.size(); ++i) {
+                    ImGui::TextColored(ImVec4(0.3f, 0.6f, 0.3f, 1.0f), "%4d │ ", (int)i + 1);
+                    ImGui::SameLine();
+                    RenderHighlightedLine(g_ViLines[i], g_ViFilename, g_ViSearchQuery);
+                }
+                ImGui::PopStyleVar();
+                ImGui::EndChild();
+                
+                ImGui::Separator();
+                
+                if (g_ViCommandActive) {
+                    ImGui::TextColored(ImVec4(0.0f, 1.0f, 0.3f, 1.0f), "%c", g_ViCommandChar);
+                    ImGui::SameLine();
+                    ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0, 0, 0, 0));
+                    ImGui::PushStyleColor(ImGuiCol_FrameBgHovered, ImVec4(0, 0, 0, 0));
+                    ImGui::PushStyleColor(ImGuiCol_FrameBgActive, ImVec4(0, 0, 0, 0));
+                    ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(0, 0));
+                    ImGui::PushItemWidth(-FLT_MIN);
+                    
+                    if (g_FocusViInput) {
+                        ImGui::SetKeyboardFocusHere(0);
+                        g_FocusViInput = false;
+                    }
+                    
+                    if (ImGui::InputText("##ViCommandInput", g_ViCmdInput, IM_ARRAYSIZE(g_ViCmdInput), ImGuiInputTextFlags_EnterReturnsTrue)) {
+                        std::string cmdStr(g_ViCmdInput);
+                        if (g_ViCommandChar == ':') {
+                            if (cmdStr == "q" || cmdStr == "q!") {
+                                g_ViMode = false;
+                                AddLog("Closed vi viewer.", ImVec4(0.0f, 1.0f, 0.3f, 1.0f));
+                                g_FocusTerminalInput = true;
+                            }
+                        } else if (g_ViCommandChar == '/') {
+                            g_ViSearchQuery = cmdStr;
+                            if (!g_ViSearchQuery.empty()) {
+                                bool found = false;
+                                for (size_t i = 0; i < g_ViLines.size(); ++i) {
+                                    std::string lowerLine = g_ViLines[i];
+                                    std::string lowerQuery = g_ViSearchQuery;
+                                    std::transform(lowerLine.begin(), lowerLine.end(), lowerLine.begin(), ::tolower);
+                                    std::transform(lowerQuery.begin(), lowerQuery.end(), lowerQuery.begin(), ::tolower);
+                                    if (lowerLine.find(lowerQuery) != std::string::npos) {
+                                        g_ViSearchMatchIdx = (int)i;
+                                        g_ViScrollToLine = (int)i;
+                                        found = true;
+                                        break;
+                                    }
+                                }
+                                if (!found) {
+                                    g_ViSearchMatchIdx = -1;
+                                }
+                            } else {
+                                g_ViSearchMatchIdx = -1;
+                            }
+                        }
+                        strcpy(g_ViCmdInput, "");
+                        g_ViCommandActive = false;
+                    }
+                    
+                    ImGui::PopItemWidth();
+                    ImGui::PopStyleVar();
+                    ImGui::PopStyleColor(3);
+                } else {
+                    ImGui::TextColored(ImVec4(0.0f, 0.8f, 0.2f, 1.0f), "\":q\" to quit | \"/\" to search | Current search: %s", 
+                                       g_ViSearchQuery.empty() ? "(none)" : g_ViSearchQuery.c_str());
+                    
+                    // Char input queue check
+                    for (int i = 0; i < io.InputQueueCharacters.Size; ++i) {
+                        ImWchar c = io.InputQueueCharacters[i];
+                        if (c == ':') {
+                            g_ViCommandActive = true;
+                            g_ViCommandChar = ':';
+                            g_FocusViInput = true;
+                            strcpy(g_ViCmdInput, "");
+                        } else if (c == '/') {
+                            g_ViCommandActive = true;
+                            g_ViCommandChar = '/';
+                            g_FocusViInput = true;
+                            strcpy(g_ViCmdInput, "");
+                        }
+                    }
+
+                    if (ImGui::IsKeyPressed(ImGuiKey_Escape)) {
+                        g_ViMode = false;
+                        AddLog("Closed vi viewer.", ImVec4(0.0f, 1.0f, 0.3f, 1.0f));
+                        g_FocusTerminalInput = true;
+                    }
+                }
+            } else {
+                // Render standard inline terminal console
+                ImGui::TextColored(ImVec4(0.0f, 1.0f, 1.0f, 1.0f), "SYSTEM TERMINAL SHELL (Type 'help' for instructions)");
+                ImGui::Separator();
+                
+                ImGui::BeginChild("ScrollingRegion", ImVec2(0, 0), false, ImGuiWindowFlags_HorizontalScrollbar);
+                
+                ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(4, 1));
+                for (const auto& item : g_ConsoleLog) {
+                    ImGui::TextColored(item.color, "%s", item.text.c_str());
+                }
+                
+                // Inline command input prompt
+                ImGui::TextColored(ImVec4(0.0f, 1.0f, 0.3f, 1.0f), "louie@lhcoyle4-core:%s$ ", GetCurrentPathString().c_str());
+                ImGui::SameLine();
+                
+                ImGuiInputTextFlags inputFlags = ImGuiInputTextFlags_EnterReturnsTrue | ImGuiInputTextFlags_CallbackHistory;
+                
+                ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0, 0, 0, 0));
+                ImGui::PushStyleColor(ImGuiCol_FrameBgHovered, ImVec4(0, 0, 0, 0));
+                ImGui::PushStyleColor(ImGuiCol_FrameBgActive, ImVec4(0, 0, 0, 0));
+                ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(0, 0));
+                ImGui::PushItemWidth(-FLT_MIN);
+                
+                if (g_FocusTerminalInput) {
+                    ImGui::SetKeyboardFocusHere(0);
+                    g_FocusTerminalInput = false;
+                }
+                
+                if (ImGui::InputText("##InlineInput", g_InputBuf, IM_ARRAYSIZE(g_InputBuf), inputFlags, &ConsoleInputCallback)) {
+                    std::string inputStr(g_InputBuf);
+                    
+                    // Echo the prompt and typed command to terminal log
+                    std::string promptLine = "louie@lhcoyle4-core:" + GetCurrentPathString() + "$ " + inputStr;
+                    AddLog(promptLine, ImVec4(0.0f, 1.0f, 0.3f, 1.0f));
+                    
+                    if (!inputStr.empty()) {
+                        ExecuteCommand(inputStr);
+                    }
+                    
+                    strcpy(g_InputBuf, "");
+                    g_FocusTerminalInput = true;
+                    g_TerminalScrollToBottom = true;
+                }
+                
+                ImGui::PopItemWidth();
+                ImGui::PopStyleVar();
+                ImGui::PopStyleColor(3);
+                
+                if (g_TerminalScrollToBottom) {
+                    ImGui::SetScrollHereY(1.0f);
+                    g_TerminalScrollToBottom = false;
+                }
+                
+                // Redirect keyboard focus if user clicks or inputs key on the terminal window
+                if (ImGui::IsWindowHovered(ImGuiHoveredFlags_ChildWindows) && ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
+                    g_FocusTerminalInput = true;
+                }
+                
+                ImGui::PopStyleVar();
+                ImGui::EndChild();
             }
-            ImGui::PopItemWidth();
         }
         else if (g_ActiveTab == 1) {
             // ==========================================
