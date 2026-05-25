@@ -615,7 +615,7 @@ int main(int, char**)
 
         ImGui::Spacing();
         ImGui::Separator();
-        ImGui::TextWrapped("Bio: BSCS + GIS Master's Cert. Portland, ME. Drone pilot, Python automations, C/C++ programmer.");
+        ImGui::TextWrapped("Bio: BSCS + GIS Master's Cert. Portland, ME. Aspiring drone pilot, Python automations, C/C++ programmer.");
 
         ImGui::EndChild();
 
