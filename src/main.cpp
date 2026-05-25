@@ -4103,7 +4103,7 @@ int main(int, char**)
                     }
                     ImGui::SameLine();
                     if (ImGui::Button("Wikipedia")) {
-                        SearchGoogle(g_SgeEntityName + " Wikipedia");
+                        SearchGoogle(g_SgeEntityName + " " + g_SgeEntityLayer + " Wikipedia");
                     }
                     ImGui::SameLine();
                     if (ImGui::Button("Energy.gov")) {
