@@ -2473,30 +2473,31 @@ int main(int, char**)
 
         ImGui::TextColored(ImVec4(1.0f, 0.8f, 0.0f, 1.0f), "SYS DIAGNOSTICS");
         ImGui::Separator();
-        
-        // Progress Bars for system parameters — color coded:
-        //   green  < 40%  (low)
-        //   yellow 40-70% (medium)
-        //   red    > 70%  (high)
-        auto DiagBarColor = [](float pct) -> ImVec4 {
-            if (pct < 40.0f) return ImVec4(0.10f, 0.85f, 0.25f, 1.0f); // green
-            if (pct < 70.0f) return ImVec4(0.95f, 0.78f, 0.05f, 1.0f); // yellow
-            return             ImVec4(0.90f, 0.18f, 0.10f, 1.0f);       // red
-        };
 
-        ImGui::Text("CPU Core Usage:");
-        ImGui::PushStyleColor(ImGuiCol_PlotHistogram, DiagBarColor(g_CpuSmooth));
-        ImGui::ProgressBar(g_CpuSmooth / 100.0f, ImVec2(-FLT_MIN, 15.0f), "");
-        ImGui::PopStyleColor();
-        ImGui::SameLine(0, 4);
-        ImGui::Text("%.1f%%", g_CpuSmooth);
+        // Mini scrolling plot lines — same data as the Hardware Plots tab,
+        // sized to fit the narrow sidebar.
+        char sideOverlay[32];
 
-        ImGui::Text("Heap Memory Usage:");
-        ImGui::PushStyleColor(ImGuiCol_PlotHistogram, DiagBarColor(g_RamSmooth));
-        ImGui::ProgressBar(g_RamSmooth / 100.0f, ImVec2(-FLT_MIN, 15.0f), "");
-        ImGui::PopStyleColor();
-        ImGui::SameLine(0, 4);
-        ImGui::Text("%.1f%%", g_RamSmooth);
+        ImGui::Text("vCPU:");
+        snprintf(sideOverlay, sizeof(sideOverlay), "%.0f%%", g_CpuSmooth);
+        ImGui::PushStyleColor(ImGuiCol_PlotLines,        ImVec4(0.0f, 1.0f, 0.3f, 1.0f));
+        ImGui::PushStyleColor(ImGuiCol_PlotLinesHovered, ImVec4(0.0f, 1.0f, 0.3f, 1.0f));
+        ImGui::PlotLines("##SideCPU", g_CpuHistory.data(), (int)g_CpuHistory.size(), 0, sideOverlay, 0.0f, 100.0f, ImVec2(-FLT_MIN, 42.0f));
+        ImGui::PopStyleColor(2);
+
+        ImGui::Text("HEAP:");
+        snprintf(sideOverlay, sizeof(sideOverlay), "%.0f%%", g_RamSmooth);
+        ImGui::PushStyleColor(ImGuiCol_PlotLines,        ImVec4(0.0f, 0.8f, 1.0f, 1.0f));
+        ImGui::PushStyleColor(ImGuiCol_PlotLinesHovered, ImVec4(0.0f, 0.8f, 1.0f, 1.0f));
+        ImGui::PlotLines("##SideRAM", g_RamHistory.data(), (int)g_RamHistory.size(), 0, sideOverlay, 0.0f, 100.0f, ImVec2(-FLT_MIN, 42.0f));
+        ImGui::PopStyleColor(2);
+
+        ImGui::Text("NET IO:");
+        snprintf(sideOverlay, sizeof(sideOverlay), "%.0f%%", g_NetSmooth);
+        ImGui::PushStyleColor(ImGuiCol_PlotLines,        ImVec4(1.0f, 0.8f, 0.0f, 1.0f));
+        ImGui::PushStyleColor(ImGuiCol_PlotLinesHovered, ImVec4(1.0f, 0.8f, 0.0f, 1.0f));
+        ImGui::PlotLines("##SideNet", g_NetworkHistory.data(), (int)g_NetworkHistory.size(), 0, sideOverlay, 0.0f, 100.0f, ImVec2(-FLT_MIN, 42.0f));
+        ImGui::PopStyleColor(2);
         
         ImGui::Spacing();
         ImGui::TextColored(ImVec4(1.0f, 0.8f, 0.0f, 1.0f), "NAV COMMAND CENTER");
@@ -4102,7 +4103,7 @@ int main(int, char**)
             // ==========================================
             // TAB 4: INTRO & CREDITS
             // ==========================================
-            ImGui::TextColored(ImVec4(0.0f, 1.0f, 1.0f, 1.0f), "WASM GRAPHICS SHADER PIPELINE - ABOUT");
+            ImGui::TextColored(ImVec4(0.0f, 1.0f, 1.0f, 1.0f), "INFO & CREDITS");
             ImGui::Separator();
 
             ImGui::TextColored(ImVec4(1.0f, 0.8f, 0.0f, 1.0f), "Why build a personal portfolio website in C++ / WebAssembly?");
@@ -4149,4 +4150,9 @@ int main(int, char**)
     ImGui_ImplSDL2_Shutdown();
     ImGui::DestroyContext();
 
-  
+    SDL_GL_DeleteContext(gl_context);
+    SDL_DestroyWindow(window);
+    SDL_Quit();
+
+    return 0;
+}
