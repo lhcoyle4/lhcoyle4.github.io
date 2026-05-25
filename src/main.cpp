@@ -119,6 +119,18 @@ bool g_ShowContours = true;
 bool g_ShowGrid = true;
 int g_SelectedCity = 0; // Default: Portland, ME
 bool g_ShowLabels = true;
+bool g_ShowLabelsWorld = true;
+bool g_ShowLabelsStates = true;
+bool g_ShowLabelsHighways = true;
+bool g_ShowLabelsUSHighways = true;
+bool g_ShowLabelsRailways = true;
+bool g_ShowLabelsPowerPlants = true;
+bool g_ShowLabelsSubstations = true;
+bool g_ShowLabelsPipelines = true;
+bool g_ShowLabelsEnergyCorridors = true;
+bool g_ShowLabelsLakes = true;
+bool g_ShowLabelsCities = true;
+bool g_ShowLabelsContours = true;
 
 
 // Log function
@@ -747,19 +759,116 @@ int main(int, char**)
             ImGui::Separator();
             ImGui::Checkbox("Show Map Labels", &g_ShowLabels);
             ImGui::Checkbox("Show National Boundary", &g_ShowBoundary);
+            
             ImGui::Checkbox("Show World Countries", &g_ShowWorld);
+            if (g_ShowWorld) {
+                ImGui::Indent(15.0f);
+                ImGui::BeginDisabled(!g_ShowLabels);
+                ImGui::Checkbox("World Labels", &g_ShowLabelsWorld);
+                ImGui::EndDisabled();
+                ImGui::Unindent(15.0f);
+            }
+            
             ImGui::Checkbox("Show State Borders", &g_ShowStates);
+            if (g_ShowStates) {
+                ImGui::Indent(15.0f);
+                ImGui::BeginDisabled(!g_ShowLabels);
+                ImGui::Checkbox("State Labels", &g_ShowLabelsStates);
+                ImGui::EndDisabled();
+                ImGui::Unindent(15.0f);
+            }
+            
             ImGui::Checkbox("Show Hydrography (Lakes & Rivers)", &g_ShowLakes);
+            if (g_ShowLakes) {
+                ImGui::Indent(15.0f);
+                ImGui::BeginDisabled(!g_ShowLabels);
+                ImGui::Checkbox("Hydrography Labels", &g_ShowLabelsLakes);
+                ImGui::EndDisabled();
+                ImGui::Unindent(15.0f);
+            }
+            
             ImGui::Checkbox("Show Roads (Interstates)", &g_ShowHighways);
+            if (g_ShowHighways) {
+                ImGui::Indent(15.0f);
+                ImGui::BeginDisabled(!g_ShowLabels);
+                ImGui::Checkbox("Interstate Labels", &g_ShowLabelsHighways);
+                ImGui::EndDisabled();
+                ImGui::Unindent(15.0f);
+            }
+            
             ImGui::Checkbox("Show Secondary Highways", &g_ShowUSHighways);
+            if (g_ShowUSHighways) {
+                ImGui::Indent(15.0f);
+                ImGui::BeginDisabled(!g_ShowLabels);
+                ImGui::Checkbox("Secondary Hwy Labels", &g_ShowLabelsUSHighways);
+                ImGui::EndDisabled();
+                ImGui::Unindent(15.0f);
+            }
+            
             ImGui::Checkbox("Show Railroads", &g_ShowRailways);
+            if (g_ShowRailways) {
+                ImGui::Indent(15.0f);
+                ImGui::BeginDisabled(!g_ShowLabels);
+                ImGui::Checkbox("Railroad Labels", &g_ShowLabelsRailways);
+                ImGui::EndDisabled();
+                ImGui::Unindent(15.0f);
+            }
+            
             ImGui::Checkbox("Show Power Stations", &g_ShowPowerPlants);
+            if (g_ShowPowerPlants) {
+                ImGui::Indent(15.0f);
+                ImGui::BeginDisabled(!g_ShowLabels);
+                ImGui::Checkbox("Power Station Labels", &g_ShowLabelsPowerPlants);
+                ImGui::EndDisabled();
+                ImGui::Unindent(15.0f);
+            }
+            
             ImGui::Checkbox("Show Grid Substations", &g_ShowSubstations);
+            if (g_ShowSubstations) {
+                ImGui::Indent(15.0f);
+                ImGui::BeginDisabled(!g_ShowLabels);
+                ImGui::Checkbox("Substation Labels", &g_ShowLabelsSubstations);
+                ImGui::EndDisabled();
+                ImGui::Unindent(15.0f);
+            }
+            
             ImGui::Checkbox("Show Gas & Oil Pipelines", &g_ShowPipelines);
+            if (g_ShowPipelines) {
+                ImGui::Indent(15.0f);
+                ImGui::BeginDisabled(!g_ShowLabels);
+                ImGui::Checkbox("Pipeline Labels", &g_ShowLabelsPipelines);
+                ImGui::EndDisabled();
+                ImGui::Unindent(15.0f);
+            }
+            
             ImGui::Checkbox("Show HV Energy Corridors", &g_ShowEnergyCorridors);
+            if (g_ShowEnergyCorridors) {
+                ImGui::Indent(15.0f);
+                ImGui::BeginDisabled(!g_ShowLabels);
+                ImGui::Checkbox("Corridor Labels", &g_ShowLabelsEnergyCorridors);
+                ImGui::EndDisabled();
+                ImGui::Unindent(15.0f);
+            }
+            
             ImGui::Checkbox("Show USGS Telemetry Grid", &g_ShowGrid);
+            
             ImGui::Checkbox("Show USGS Stations (Cities)", &g_ShowCities);
+            if (g_ShowCities) {
+                ImGui::Indent(15.0f);
+                ImGui::BeginDisabled(!g_ShowLabels);
+                ImGui::Checkbox("Station Labels", &g_ShowLabelsCities);
+                ImGui::EndDisabled();
+                ImGui::Unindent(15.0f);
+            }
+            
             ImGui::Checkbox("Show Topographic Contours", &g_ShowContours);
+            if (g_ShowContours) {
+                ImGui::Indent(15.0f);
+                ImGui::BeginDisabled(!g_ShowLabels);
+                ImGui::Checkbox("Contour Labels", &g_ShowLabelsContours);
+                ImGui::EndDisabled();
+                ImGui::Unindent(15.0f);
+            }
 
             ImGui::Spacing();
             ImGui::TextColored(ImVec4(1.0f, 0.8f, 0.0f, 1.0f), "Selected Station Telemetry");
@@ -828,12 +937,12 @@ int main(int, char**)
                 }
             };
 
-            float fontScale = g_MapScale / 8.0f;
-            if (fontScale < 0.5f) fontScale = 0.5f;
-            if (fontScale > 2.0f) fontScale = 2.0f;
+            float fontScale = g_MapScale / 16.0f;
+            if (fontScale < 0.35f) fontScale = 0.35f;
+            if (fontScale > 1.5f) fontScale = 1.5f;
 
-            auto DrawScaledLabel = [&](ImVec2 pos, ImU32 color, const char* text, float minScaleToShow = 0.0f) {
-                if (!g_ShowLabels) return;
+            auto DrawScaledLabel = [&](ImVec2 pos, ImU32 color, const char* text, float minScaleToShow = 0.0f, bool layerToggle = true) {
+                if (!g_ShowLabels || !layerToggle) return;
                 if (g_MapScale < minScaleToShow) return;
                 
                 // Viewport boundary check before rendering text
@@ -926,7 +1035,7 @@ int main(int, char**)
                         float avgLon = sumLon / ptCount;
                         float avgLat = sumLat / ptCount;
                         ImVec2 labelPos = ProjectLonLat(avgLon, avgLat, canvasCenter, g_MapScale, g_MapOffset);
-                        DrawScaledLabel(labelPos, IM_COL32(0, 200, 30, 150), country.name, 4.0f);
+                        DrawScaledLabel(labelPos, IM_COL32(0, 200, 30, 150), country.name, 4.0f, g_ShowLabelsWorld);
                     }
                 }
             }
@@ -940,10 +1049,10 @@ int main(int, char**)
                 
                 // Draw text descriptors near ridges
                 ImVec2 appCenter = ProjectLonLat(-77.0f, 40.0f, canvasCenter, g_MapScale, g_MapOffset);
-                DrawScaledLabel(appCenter, IM_COL32(0, 180, 0, 90), "CONTOUR 1000m", 6.0f);
+                DrawScaledLabel(appCenter, IM_COL32(0, 180, 0, 90), "CONTOUR 1000m", 6.0f, g_ShowLabelsContours);
                 
                 ImVec2 rockCenter = ProjectLonLat(-110.0f, 42.0f, canvasCenter, g_MapScale, g_MapOffset);
-                DrawScaledLabel(rockCenter, IM_COL32(0, 180, 0, 90), "CONTOUR 3000m", 6.0f);
+                DrawScaledLabel(rockCenter, IM_COL32(0, 180, 0, 90), "CONTOUR 3000m", 6.0f, g_ShowLabelsContours);
             }
 
             // Draw hydrography lakes and rivers
@@ -968,10 +1077,10 @@ int main(int, char**)
 
                 // River/Lake text labels
                 ImVec2 supCenter = ProjectLonLat(-88.5f, 47.5f, canvasCenter, g_MapScale, g_MapOffset);
-                DrawScaledLabel(supCenter, IM_COL32(0, 140, 170, 120), "L. SUPERIOR", 4.0f);
+                DrawScaledLabel(supCenter, IM_COL32(0, 140, 170, 120), "L. SUPERIOR", 4.0f, g_ShowLabelsLakes);
 
                 ImVec2 missCenter = ProjectLonLat(-90.5f, 35.1f, canvasCenter, g_MapScale, g_MapOffset);
-                DrawScaledLabel(missCenter, IM_COL32(0, 140, 170, 120), "MISSISSIPPI R.", 5.0f);
+                DrawScaledLabel(missCenter, IM_COL32(0, 140, 170, 120), "MISSISSIPPI R.", 5.0f, g_ShowLabelsLakes);
             }
 
             // Draw state borders
@@ -994,7 +1103,7 @@ int main(int, char**)
                         float avgLon = sumLon / ptCount;
                         float avgLat = sumLat / ptCount;
                         ImVec2 labelPos = ProjectLonLat(avgLon, avgLat, canvasCenter, g_MapScale, g_MapOffset);
-                        DrawScaledLabel(labelPos, IM_COL32(0, 220, 50, 130), state.name, 6.0f);
+                        DrawScaledLabel(labelPos, IM_COL32(0, 220, 50, 130), state.name, 6.0f, g_ShowLabelsStates);
                     }
                 }
             }
@@ -1008,7 +1117,7 @@ int main(int, char**)
                     if (hw.count > 0) {
                         int midIdx = hw.start_index + hw.count / 2;
                         ImVec2 labelPos = ProjectLonLat(US_Highways_Lon[midIdx], US_Highways_Lat[midIdx], canvasCenter, g_MapScale, g_MapOffset);
-                        DrawScaledLabel(labelPos, IM_COL32(0, 240, 100, 180), hw.name, 8.0f);
+                        DrawScaledLabel(labelPos, IM_COL32(0, 240, 100, 180), hw.name, 8.0f, g_ShowLabelsHighways);
                     }
                 }
             }
@@ -1022,7 +1131,7 @@ int main(int, char**)
                     if (hw.count > 0) {
                         int midIdx = hw.start_index + hw.count / 2;
                         ImVec2 labelPos = ProjectLonLat(US_SecondaryHighways_Lon[midIdx], US_SecondaryHighways_Lat[midIdx], canvasCenter, g_MapScale, g_MapOffset);
-                        DrawScaledLabel(labelPos, IM_COL32(0, 180, 80, 150), hw.name, 12.0f);
+                        DrawScaledLabel(labelPos, IM_COL32(0, 180, 80, 150), hw.name, 12.0f, g_ShowLabelsUSHighways);
                     }
                 }
             }
@@ -1036,7 +1145,7 @@ int main(int, char**)
                     if (rr.count > 0) {
                         int midIdx = rr.start_index + rr.count / 2;
                         ImVec2 labelPos = ProjectLonLat(US_Railways_Lon[midIdx], US_Railways_Lat[midIdx], canvasCenter, g_MapScale, g_MapOffset);
-                        DrawScaledLabel(labelPos, IM_COL32(0, 200, 180, 160), rr.name, 10.0f);
+                        DrawScaledLabel(labelPos, IM_COL32(0, 200, 180, 160), rr.name, 10.0f, g_ShowLabelsRailways);
                     }
                 }
             }
@@ -1050,7 +1159,7 @@ int main(int, char**)
                     if (pl.count > 0) {
                         int midIdx = pl.start_index + pl.count / 2;
                         ImVec2 labelPos = ProjectLonLat(US_Pipelines_Lon[midIdx], US_Pipelines_Lat[midIdx], canvasCenter, g_MapScale, g_MapOffset);
-                        DrawScaledLabel(labelPos, IM_COL32(0, 130, 180, 160), pl.name, 11.0f);
+                        DrawScaledLabel(labelPos, IM_COL32(0, 130, 180, 160), pl.name, 11.0f, g_ShowLabelsPipelines);
                     }
                 }
             }
@@ -1064,7 +1173,7 @@ int main(int, char**)
                     if (ec.count > 0) {
                         int midIdx = ec.start_index + ec.count / 2;
                         ImVec2 labelPos = ProjectLonLat(US_EnergyCorridors_Lon[midIdx], US_EnergyCorridors_Lat[midIdx], canvasCenter, g_MapScale, g_MapOffset);
-                        DrawScaledLabel(labelPos, IM_COL32(0, 190, 190, 160), ec.name, 10.0f);
+                        DrawScaledLabel(labelPos, IM_COL32(0, 190, 190, 160), ec.name, 10.0f, g_ShowLabelsEnergyCorridors);
                     }
                 }
             }
@@ -1089,7 +1198,7 @@ int main(int, char**)
                         ImGui::SetTooltip("%s", sub.name);
                     }
                     
-                    DrawScaledLabel(ImVec2(p.x + 6, p.y - 4), IM_COL32(0, 180, 180, 150), sub.name, 22.0f);
+                    DrawScaledLabel(ImVec2(p.x + 6, p.y - 4), IM_COL32(0, 180, 180, 150), sub.name, 22.0f, g_ShowLabelsSubstations);
                 }
             }
 
@@ -1121,10 +1230,10 @@ int main(int, char**)
                         ImGui::SetTooltip("%s\nFuel: %s | Capacity: %.1f MW", pp.name, pp.fuel, pp.capacity);
                     }
                     
-                    if (g_ShowLabels && g_MapScale >= 15.0f) {
+                    if (g_MapScale >= 15.0f) {
                         char labelText[128];
                         snprintf(labelText, sizeof(labelText), "%s (%.0f MW)", pp.name, pp.capacity);
-                        DrawScaledLabel(ImVec2(p.x + radius + 4, p.y - 4), color, labelText, 15.0f);
+                        DrawScaledLabel(ImVec2(p.x + radius + 4, p.y - 4), color, labelText, 15.0f, g_ShowLabelsPowerPlants);
                     }
                 }
             }
@@ -1162,7 +1271,7 @@ int main(int, char**)
                     }
 
                     // Label offset text
-                    DrawScaledLabel(ImVec2(p.x + 10, p.y - 7), isSelected ? IM_COL32(255, 220, 0, 240) : IM_COL32(0, 240, 50, 190), city.name.c_str(), 0.0f);
+                    DrawScaledLabel(ImVec2(p.x + 10, p.y - 7), isSelected ? IM_COL32(255, 220, 0, 240) : IM_COL32(0, 240, 50, 190), city.name.c_str(), 0.0f, g_ShowLabelsCities);
                 }
             }
 
