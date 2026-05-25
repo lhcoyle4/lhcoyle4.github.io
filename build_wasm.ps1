@@ -25,7 +25,7 @@ if (!(Get-Command em++ -ErrorAction SilentlyContinue)) {
 Write-Host "Compilation starting..." -ForegroundColor Yellow
 
 # Construct the full command line string for cmd.exe
-$cmdLine = "em++ -Os src/main.cpp imgui/imgui.cpp imgui/imgui_draw.cpp imgui/imgui_demo.cpp imgui/imgui_tables.cpp imgui/imgui_widgets.cpp imgui/backends/imgui_impl_sdl2.cpp imgui/backends/imgui_impl_opengl3.cpp -Iimgui -Iimgui/backends -s USE_SDL=2 -s USE_WEBGL2=1 -s MAX_WEBGL_VERSION=2 -s WASM=1 -s ALLOW_MEMORY_GROWTH=1 -s DISABLE_EXCEPTION_CATCHING=1 -s NO_EXIT_RUNTIME=0 -s ASSERTIONS=0 -s NO_FILESYSTEM=1 -DIMGUI_DISABLE_FILE_FUNCTIONS -DIMGUI_IMPL_OPENGL_ES3 --shell-file src/shell.html -o index.html"
+$cmdLine = "em++ -Os src/main.cpp imgui/imgui.cpp imgui/imgui_draw.cpp imgui/imgui_demo.cpp imgui/imgui_tables.cpp imgui/imgui_widgets.cpp imgui/backends/imgui_impl_sdl2.cpp imgui/backends/imgui_impl_opengl3.cpp -Iimgui -Iimgui/backends -s USE_SDL=2 -s USE_WEBGL2=1 -s MAX_WEBGL_VERSION=2 -s WASM=1 -s ALLOW_MEMORY_GROWTH=1 -s DISABLE_EXCEPTION_CATCHING=1 -s NO_EXIT_RUNTIME=0 -s ASSERTIONS=0 -s NO_FILESYSTEM=1 -DIMGUI_DISABLE_FILE_FUNCTIONS -DIMGUI_IMPL_OPENGL_ES3 -DIMGUI_USE_32BIT_VERTICES --shell-file src/shell.html -o index.html"
 
 Write-Host "Executing em++ via cmd.exe..." -ForegroundColor Yellow
 cmd.exe /c $cmdLine

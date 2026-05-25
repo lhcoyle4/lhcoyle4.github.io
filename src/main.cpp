@@ -794,18 +794,35 @@ int main(int, char**)
                 return ImVec2(x, y);
             };
 
-            // Drawing line segment-by-segment (independent of ImGui version flags)
+            // Drawing line segment-by-segment with viewport clipping
             auto DrawMapLine = [&](const float* lons, const float* lats, int count, ImU32 color, float thickness, bool closed, ImVec2 center) {
                 if (count < 2) return;
                 for (int i = 0; i < count - 1; ++i) {
                     ImVec2 p1 = ProjectLonLat(lons[i], lats[i], center, g_MapScale, g_MapOffset);
                     ImVec2 p2 = ProjectLonLat(lons[i+1], lats[i+1], center, g_MapScale, g_MapOffset);
+                    
+                    float minX = p1.x < p2.x ? p1.x : p2.x;
+                    float maxX = p1.x > p2.x ? p1.x : p2.x;
+                    float minY = p1.y < p2.y ? p1.y : p2.y;
+                    float maxY = p1.y > p2.y ? p1.y : p2.y;
+                    if (maxX < canvasPos.x || minX > canvasPos.x + canvasSize.x ||
+                        maxY < canvasPos.y || minY > canvasPos.y + canvasSize.y) {
+                        continue;
+                    }
                     drawList->AddLine(p1, p2, color, thickness);
                 }
                 if (closed) {
                     ImVec2 p1 = ProjectLonLat(lons[count-1], lats[count-1], center, g_MapScale, g_MapOffset);
                     ImVec2 p2 = ProjectLonLat(lons[0], lats[0], center, g_MapScale, g_MapOffset);
-                    drawList->AddLine(p1, p2, color, thickness);
+                    
+                    float minX = p1.x < p2.x ? p1.x : p2.x;
+                    float maxX = p1.x > p2.x ? p1.x : p2.x;
+                    float minY = p1.y < p2.y ? p1.y : p2.y;
+                    float maxY = p1.y > p2.y ? p1.y : p2.y;
+                    if (!(maxX < canvasPos.x || minX > canvasPos.x + canvasSize.x ||
+                          maxY < canvasPos.y || minY > canvasPos.y + canvasSize.y)) {
+                        drawList->AddLine(p1, p2, color, thickness);
+                    }
                 }
             };
 
@@ -979,6 +996,12 @@ int main(int, char**)
                 for (int i = 0; i < US_Substations_Count; ++i) {
                     const auto& sub = US_Substations[i];
                     ImVec2 p = ProjectLonLat(sub.lon, sub.lat, canvasCenter, g_MapScale, g_MapOffset);
+                    
+                    if (p.x < canvasPos.x - 3.0f || p.x > canvasPos.x + canvasSize.x + 3.0f ||
+                        p.y < canvasPos.y - 3.0f || p.y > canvasPos.y + canvasSize.y + 3.0f) {
+                        continue;
+                    }
+                    
                     drawList->AddLine(ImVec2(p.x - 3, p.y), ImVec2(p.x + 3, p.y), IM_COL32(0, 220, 220, 180), 1.0f);
                     drawList->AddLine(ImVec2(p.x, p.y - 3), ImVec2(p.x, p.y + 3), IM_COL32(0, 220, 220, 180), 1.0f);
                     
@@ -996,13 +1019,18 @@ int main(int, char**)
                     const auto& pp = US_PowerStations[i];
                     ImVec2 p = ProjectLonLat(pp.lon, pp.lat, canvasCenter, g_MapScale, g_MapOffset);
                     
+                    float radius = 2.5f + sqrtf(pp.capacity) * 0.08f;
+                    if (radius > 9.0f) radius = 9.0f;
+                    
+                    if (p.x < canvasPos.x - radius || p.x > canvasPos.x + canvasSize.x + radius ||
+                        p.y < canvasPos.y - radius || p.y > canvasPos.y + canvasSize.y + radius) {
+                        continue;
+                    }
+                    
                     ImU32 color = IM_COL32(0, 255, 100, 200); // Default NG/Gas: Light Green
                     if (strcmp(pp.fuel, "NUC") == 0) color = IM_COL32(255, 100, 0, 220); // Nuclear: Orange
                     else if (strcmp(pp.fuel, "HYC") == 0 || strcmp(pp.fuel, "WAT") == 0) color = IM_COL32(0, 150, 255, 200); // Hydro: Blue
                     else if (strcmp(pp.fuel, "COL") == 0) color = IM_COL32(180, 100, 255, 200); // Coal: Purple
-                    
-                    float radius = 2.5f + sqrtf(pp.capacity) * 0.08f;
-                    if (radius > 9.0f) radius = 9.0f;
                     
                     drawList->AddCircleFilled(p, radius, color);
                     drawList->AddCircle(p, radius + 2.0f, IM_COL32(0, 255, 100, 80), 8, 1.0f);
