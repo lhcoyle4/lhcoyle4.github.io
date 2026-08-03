@@ -1,543 +1,120 @@
-<!DOCTYPE html>
-<html lang="en-US">
+<!doctype html>
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="description" content="LHCOYLE4 — systems, tools, and field projects by Louie Coyle. Embedded C, drone mapping, procedural audio, GIS. Boot the WASM Systems Core for the full instrument panel.">
-<meta name="theme-color" content="#010401">
-<title>LHCOYLE4 // Systems Core</title>
+<meta name="description" content="Application portfolio of Louis H. Coyle II — IT operations, deployment & desktop support, software & automation, GIS. Portland, Maine.">
+<meta name="theme-color" content="#faf9f6">
+<title>Louis H. Coyle II — Portfolio</title>
 <style>
-:root{
-  --bg:#010401;
-  --panel:#02110a;
-  --panel-2:#021a0d;
-  --line:rgba(0,255,51,.22);
-  --line-dim:rgba(0,255,51,.1);
-  --p1:#0f3;            /* P1 green phosphor — primary ink */
-  --p1-dim:#0a2;        /* status green */
-  --p1-faint:#075c25;
-  --p3:#ffb000;         /* P3 amber phosphor — telemetry accent */
-  --alert:#ff4455;
-  --glow:0 0 10px rgba(0,255,51,.7);
-  --glow-soft:0 0 6px rgba(0,255,51,.45);
-  --mono:ui-monospace,"Cascadia Code","JetBrains Mono","Fira Code",Consolas,"Courier New",Courier,monospace;
-}
-*{box-sizing:border-box}
-html{scroll-behavior:smooth;scroll-padding-top:64px}
-body{
-  margin:0;background-color:var(--bg);color:var(--p1);
-  font-family:var(--mono);font-size:clamp(14px,1.5vw,16px);line-height:1.6;
-  -webkit-font-smoothing:antialiased;
-}
-::selection{background:var(--p1);color:var(--bg)}
-a{color:var(--p1);text-decoration-color:var(--p1-faint);text-underline-offset:3px}
-a:hover{color:var(--p3);text-decoration-color:var(--p3);text-shadow:0 0 8px rgba(255,176,0,.5)}
-:focus-visible{outline:2px solid var(--p3);outline-offset:2px}
-.skip{position:absolute;left:-9999px;top:0;background:var(--bg);padding:10px 14px;z-index:60;border:1px solid var(--p1)}
-.skip:focus{left:8px;top:8px}
-
-/* ---- CRT scanlines (carried over from Core V3 shell) ---- */
-.crt-scanlines{
-  position:fixed;top:0;left:0;bottom:0;right:0;
-  background:linear-gradient(rgba(18,16,16,0) 50%,rgba(0,0,0,.25) 50%),
-             linear-gradient(90deg,rgba(255,0,0,.06),rgba(0,255,0,.02),rgba(0,0,255,.06));
-  background-size:100% 4px,6px 100%;
-  z-index:20;pointer-events:none;
-}
-
-/* ---- header ---- */
-.hd{
-  position:sticky;top:0;z-index:15;
-  display:flex;align-items:center;gap:12px;flex-wrap:wrap;
-  padding:10px clamp(14px,4vw,32px);
-  background:rgba(1,4,1,.92);border-bottom:1px solid var(--line);
-  backdrop-filter:blur(2px);
-}
-.brand{font-weight:700;letter-spacing:.14em;text-transform:uppercase;text-shadow:var(--glow);font-size:15px;white-space:nowrap}
-.brand small{color:var(--p1-dim);letter-spacing:.1em}
-.nav{display:flex;gap:2px;flex-wrap:wrap;margin-left:auto}
-.nav a{
-  display:inline-flex;align-items:center;min-height:44px;padding:0 12px;
-  text-decoration:none;color:var(--p1-dim);letter-spacing:.08em;font-size:13px;text-transform:uppercase;
-}
-.nav a:hover{color:var(--p3)}
-.btn{
-  display:inline-flex;align-items:center;justify-content:center;gap:10px;
-  min-height:44px;padding:0 18px;cursor:pointer;
-  background:var(--panel);color:var(--p1);border:1px solid var(--p1);
-  font-family:var(--mono);font-size:14px;letter-spacing:.12em;text-transform:uppercase;
-  text-shadow:var(--glow-soft);
-}
-.btn:hover{background:var(--p1);color:var(--bg);text-shadow:none;box-shadow:var(--glow)}
-.btn .dot{width:8px;height:8px;border-radius:50%;background:var(--alert);box-shadow:0 0 8px var(--alert);animation:pulse 1.5s infinite}
-
-/* ---- layout ---- */
-.wrap{max-width:1100px;margin:0 auto;padding:0 clamp(14px,4vw,32px)}
-section{padding:clamp(28px,5vw,56px) 0;border-bottom:1px dashed var(--line-dim)}
-.sec-label{
-  color:var(--p3);letter-spacing:.22em;text-transform:uppercase;font-size:12px;margin:0 0 6px;
-}
-.sec-label::before{content:"## "}
-h2{margin:0 0 18px;font-size:clamp(19px,2.6vw,26px);letter-spacing:.1em;text-transform:uppercase;text-shadow:var(--glow-soft)}
-
-p{max-width:70ch}
-.dim{color:var(--p1-dim)}
-
-/* ---- hero boot log ---- */
-.hero{padding:clamp(34px,7vw,80px) 0 clamp(26px,5vw,56px)}
-.hero h1{
-  margin:0 0 22px;font-size:clamp(22px,4.6vw,42px);font-weight:700;
-  letter-spacing:.12em;text-transform:uppercase;text-shadow:var(--glow);
-}
-.bootlog{margin:0;padding:0;list-style:none;font-size:clamp(13px,1.8vw,16px)}
-.bootlog li{white-space:pre-wrap;min-height:1.6em}
-.bootlog .lbl{color:var(--p1-dim)}
-.bootlog .val{color:var(--p1)}
-.bootlog .amber{color:var(--p3)}
-.caret{display:inline-block;width:.6em;height:1.05em;background:var(--p1);vertical-align:text-bottom;box-shadow:var(--glow);animation:blink 1s steps(1) infinite}
-
-/* ---- core panel ---- */
-.core-panel{
-  border:1px solid var(--line);background:linear-gradient(180deg,var(--panel-2),var(--panel));
-  padding:clamp(18px,3vw,28px);display:flex;flex-wrap:wrap;gap:20px;align-items:center;
-}
-.core-panel .txt{flex:1 1 380px;min-width:260px}
-.core-meta{color:var(--p1-dim);font-size:13px;letter-spacing:.06em;margin-top:10px}
-
-/* ---- project cards ---- */
-.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:16px}
-.card{border:1px solid var(--line);background:var(--panel);display:flex;flex-direction:column}
-.card-hd{
-  display:flex;align-items:center;gap:10px;flex-wrap:wrap;
-  padding:10px 14px;border-bottom:1px solid var(--line-dim);background:rgba(0,255,51,.04);
-}
-.card-hd .name{font-weight:700;letter-spacing:.1em;text-transform:uppercase;text-shadow:var(--glow-soft)}
-.chip{
-  font-size:11px;letter-spacing:.12em;text-transform:uppercase;padding:3px 8px;white-space:nowrap;
-  border:1px solid currentColor;
-}
-.chip.run{color:var(--bg);background:var(--p1);border-color:var(--p1);text-shadow:none}
-.chip.amber{color:var(--p3)}
-.chip.dim{color:var(--p1-dim)}
-.card .lang{margin-left:auto;color:var(--p1-dim);font-size:12px;letter-spacing:.08em}
-.card-bd{padding:14px;flex:1}
-.card-bd p{margin:0;font-size:14px}
-.card-ft{padding:10px 14px;border-top:1px solid var(--line-dim);font-size:13px;display:flex;align-items:center;min-height:44px}
-
-/* ---- toolbox / archive rows ---- */
-.rows{border:1px solid var(--line);border-bottom:0}
-.row{
-  display:grid;grid-template-columns:190px 90px 1fr auto;gap:14px;align-items:center;
-  padding:10px 14px;border-bottom:1px solid var(--line-dim);min-height:48px;background:var(--panel);
-}
-.row:nth-child(odd){background:rgba(0,255,51,.03)}
-.row .r-name{font-weight:700;letter-spacing:.06em}
-.row .r-lang{color:var(--p3);font-size:12px;letter-spacing:.08em;text-transform:uppercase}
-.row .r-desc{color:var(--p1-dim);font-size:13px}
-.row .r-link{font-size:13px;white-space:nowrap;display:inline-flex;align-items:center;min-height:44px}
-.row .r-link a{padding:8px 4px}
-
-/* ---- interests ---- */
-.chips{display:flex;flex-wrap:wrap;gap:10px;padding:0;margin:0;list-style:none}
-.chips li{
-  border:1px dashed var(--line);padding:10px 14px;font-size:13px;letter-spacing:.08em;
-  text-transform:uppercase;color:var(--p1-dim);min-height:44px;display:inline-flex;align-items:center;
-}
-.chips li:hover{color:var(--p3);border-color:var(--p3)}
-
-/* ---- footer ---- */
-footer{padding:34px 0 56px;color:var(--p1-dim);font-size:13px}
-footer a{color:var(--p1)}
-
-/* ---- CORE V3 overlay (element ids + loader semantics preserved from the original shell) ---- */
-#coreOverlay{position:fixed;inset:0;z-index:40;background:var(--bg);display:none}
-#coreOverlay.open{display:block}
-body.core-open{overflow:hidden}
-.emscripten{
-  position:absolute;top:0;left:0;margin:0;border:0;width:100%;height:100%;overflow:hidden;display:block;
-  image-rendering:optimizeSpeed;image-rendering:-moz-crisp-edges;image-rendering:-o-crisp-edges;
-  image-rendering:-webkit-optimize-contrast;image-rendering:optimize-contrast;image-rendering:crisp-edges;
-  image-rendering:pixelated;-ms-interpolation-mode:nearest-neighbor;z-index:1;touch-action:none;
-}
-#canvas:focus{outline:0}
-#loader{
-  position:absolute;top:0;left:0;width:100%;height:100%;background-color:#020802;
-  display:flex;flex-direction:column;justify-content:center;align-items:center;z-index:10;
-  transition:opacity .5s ease-out;padding:20px;text-align:center;
-}
-.loader-title{
-  font-size:clamp(16px,3vw,24px);font-weight:700;letter-spacing:2px;margin-bottom:20px;text-transform:uppercase;
-  text-shadow:0 0 10px rgba(0,255,50,.7);animation:pulse 1.5s infinite;
-}
-.loader-spinner{
-  border:4px solid rgba(0,255,50,.1);width:50px;height:50px;border-radius:50%;border-left-color:#0f3;
-  animation:spin 1s linear infinite;margin-bottom:20px;box-shadow:0 0 15px rgba(0,255,50,.3);
-}
-#status-text{font-size:14px;color:#0a2;max-width:60ch}
-#ejectBtn{position:absolute;top:10px;right:10px;z-index:30}
-
-@keyframes spin{0%{transform:rotate(0)}100%{transform:rotate(360deg)}}
-@keyframes pulse{0%{opacity:.6}50%{opacity:1}100%{opacity:.6}}
-@keyframes blink{0%,49%{opacity:1}50%,100%{opacity:0}}
-
-/* ---- responsive ---- */
-@media (max-width:720px){
-  html{scroll-padding-top:112px}
-  .r-link a,.card-ft a,#gis a,footer a{display:inline-flex;align-items:center;min-height:44px;padding:0 4px}
-  .hd{gap:8px}
-  .nav{order:3;width:100%;margin-left:0;justify-content:flex-start;overflow-x:auto;-webkit-overflow-scrolling:touch}
-  .nav a{padding:0 10px;font-size:12px}
-  .row{grid-template-columns:1fr auto;grid-template-areas:"name lang" "desc desc" "link link";row-gap:4px;padding:12px 14px}
-  .row .r-name{grid-area:name}
-  .row .r-lang{grid-area:lang;justify-self:end}
-  .row .r-desc{grid-area:desc}
-  .row .r-link{grid-area:link;min-height:44px}
-}
-@media (prefers-reduced-motion:reduce){
-  html{scroll-behavior:auto}
-  .caret,.loader-title,.btn .dot{animation:none}
-  .loader-spinner{animation:none}
-}
+  :root {
+    --paper: #ffffff;
+    --desk: #eceae5;
+    --ink: #1c1c1c;
+    --navy: #1a365d;
+    --gray: #666666;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--desk);
+    color: var(--ink);
+    font-family: 'Palatino Linotype', Palatino, 'Book Antiqua', 'URW Palladio L', Georgia, serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  header {
+    text-align: center;
+    padding: 42px 16px 10px;
+  }
+  header .kicker {
+    font-variant: small-caps;
+    letter-spacing: 0.14em;
+    color: var(--gray);
+    font-size: 0.85rem;
+  }
+  header h1 {
+    font-size: 1.9rem;
+    font-weight: 700;
+    margin: 6px 0 2px;
+  }
+  header .sub {
+    color: var(--gray);
+    font-size: 0.95rem;
+    margin: 0 0 14px;
+  }
+  nav.actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    justify-content: center;
+    padding-bottom: 6px;
+  }
+  nav.actions a {
+    display: inline-block;
+    border: 1px solid var(--navy);
+    border-radius: 4px;
+    padding: 7px 14px;
+    color: var(--navy);
+    text-decoration: none;
+    font-size: 0.9rem;
+    background: var(--paper);
+  }
+  nav.actions a.primary {
+    background: var(--navy);
+    color: var(--paper);
+  }
+  nav.actions a:hover { filter: brightness(1.08); }
+  main {
+    max-width: 880px;
+    margin: 18px auto 0;
+    padding: 0 12px 30px;
+  }
+  .page {
+    display: block;
+    width: 100%;
+    height: auto;
+    background: var(--paper);
+    border: 1px solid #d8d4cc;
+    box-shadow: 0 2px 10px rgba(30, 30, 30, 0.10);
+    margin: 0 auto 26px;
+  }
+  footer {
+    text-align: center;
+    color: var(--gray);
+    font-size: 0.85rem;
+    padding: 8px 16px 46px;
+    line-height: 1.7;
+  }
+  footer a { color: var(--navy); }
 </style>
 </head>
 <body>
-<a class="skip" href="#main">Skip to content</a>
-<div class="crt-scanlines" aria-hidden="true"></div>
 
-<header class="hd">
-  <div class="brand">LHCOYLE4 <small>// SYSTEMS CORE</small></div>
-  <nav class="nav" aria-label="Sections">
-    <a href="#core">Core</a>
-    <a href="#builds">Builds</a>
-    <a href="#toolbox">Toolbox</a>
-    <a href="#archive">Archive</a>
-    <a href="#gis">GIS</a>
+<header>
+  <div class="kicker">application portfolio</div>
+  <h1>Louis H. Coyle II</h1>
+  <p class="sub">IT Operations &bull; Deployment &amp; Desktop Support &bull; Software &amp; Automation &bull; GIS &mdash; Portland, Maine</p>
+  <nav class="actions">
+    <a class="primary" href="portfolio/Coyle_General_Portfolio.pdf" download>Download PDF</a>
+    <a href="mailto:lhcoyle4@gmail.com">Email</a>
+    <a href="https://github.com/lhcoyle4">GitHub</a>
   </nav>
-  <button class="btn" id="bootBtnTop" type="button"><span class="dot" aria-hidden="true"></span>Boot V3</button>
 </header>
 
-<main id="main" class="wrap">
-
-  <!-- HERO: boot log -->
-  <section class="hero" aria-label="Boot log">
-    <h1>LHCOYLE4 Systems Core</h1>
-    <ul class="bootlog" id="bootlog">
-      <li data-type><span class="lbl">&gt; boot ....... </span><span class="val">OK</span></li>
-      <li data-type><span class="lbl">&gt; operator ... </span><span class="val">LOUIE COYLE &middot; PORTLAND, MAINE</span></li>
-      <li data-type><span class="lbl">&gt; training ... </span><span class="val">BSCS &middot; GIS MASTER'S CERT</span></li>
-      <li data-type><span class="lbl">&gt; focus ...... </span><span class="val">OSP/FIBER &middot; DRONE MAPPING &middot; EMBEDDED C &middot; PYTHON</span></li>
-      <li data-type><span class="lbl">&gt; status ..... </span><span class="val amber">ALL SYSTEMS NOMINAL</span></li>
-      <li data-type><span class="val">&gt; hack the planet?</span> <span class="caret" aria-hidden="true"></span></li>
-    </ul>
-  </section>
-
-  <!-- CORE V3 -->
-  <section id="core">
-    <p class="sec-label">resident program</p>
-    <div class="core-panel">
-      <div class="txt">
-        <h2>Systems Core V3</h2>
-        <p>The previous face of this page, kept resident. A portfolio-as-program: C++17 and Dear ImGui
-        compiled to WebAssembly, drawing straight to a WebGL2 canvas &mdash; no DOM, no framework, 60&nbsp;fps.
-        Inside: an interactive shell with commands, live virtual CPU/RAM plots, project flow diagrams,
-        and a GIS radar sweep.</p>
-        <p class="core-meta">&asymp;2&nbsp;MB WASM &middot; loads only when you boot it &middot; best with a keyboard &middot; touch works</p>
-      </div>
-      <button class="btn" id="bootBtn" type="button"><span class="dot" aria-hidden="true"></span><span id="bootBtnLabel">Boot Core V3</span></button>
-    </div>
-  </section>
-
-  <!-- ACTIVE BUILDS -->
-  <section id="builds">
-    <p class="sec-label">process table</p>
-    <h2>Active Builds</h2>
-    <div class="grid">
-
-      <article class="card">
-        <div class="card-hd">
-          <span class="name">BikeDash</span>
-          <span class="chip run">Field Test</span>
-          <span class="lang">C &middot; Kotlin</span>
-        </div>
-        <div class="card-bd">
-          <p>Android bike computer with a C core (NDK) under a thin Kotlin shell. It rides your music's
-          volume up and down with GPS speed &mdash; audible over wind, not blasting at stoplights &mdash; and
-          synthesizes nine procedural vehicle soundscapes in C (truck, horse, boat, prop plane, starship&hellip;)
-          with hold-to-rev and sensor-reactive one-shots. Offline vector maps (12 US regions in under a
-          megabyte), waypoints, ghost race, theft alarm, battery telemetry. Battery-first: the premium build
-          is &asymp;2&nbsp;MB with zero network permissions. 480+ unit tests across the C core and JVM.</p>
-        </div>
-        <div class="card-ft"><span class="dim">repo: private while it's on the bike</span></div>
-      </article>
-
-      <article class="card">
-        <div class="card-hd">
-          <span class="name">Open Survey Drone</span>
-          <span class="chip amber">Design Phase</span>
-          <span class="lang">HW &middot; C &middot; Py</span>
-        </div>
-        <div class="card-bd">
-          <p>An open-source, low-cost multi-sensor survey drone. Three LiDAR ranging heads on servo pan
-          mounts (forward, aft, down), filter-modified NoIR cameras for multispectral NDVI, and an RGB
-          camera for the pilot. Digital FPV pushes live video with telemetry overlay to AR display glasses
-          at roughly 52&nbsp;ms glass-to-glass; control is standard ExpressLRS RC. The sensor package rides a
-          custom Raspberry Pi Zero&nbsp;2&nbsp;W carrier PCB &mdash; Eagle layout, opto-isolated, regulated straight off
-          the flight LiPo &mdash; replacing a breadboard that weighed too much to fly.</p>
-        </div>
-        <div class="card-ft"><span class="dim">hardware + docs publish as it matures</span></div>
-      </article>
-
-      <article class="card">
-        <div class="card-hd">
-          <span class="name">Fuligin</span>
-          <span class="chip run">Active Dev</span>
-          <span class="lang">C99 &middot; SDL2</span>
-        </div>
-        <div class="card-bd">
-          <p>A vector arcade shooter inspired by Gene Wolfe's <em>Book of the New Sun</em> and Jack Vance's
-          <em>Dying Earth</em>. Glowing line art on the color darker than black. C99 and SDL2, no engine.</p>
-        </div>
-        <div class="card-ft"><a href="https://github.com/lhcoyle4/fuligin">source &rarr; github/fuligin</a></div>
-      </article>
-
-      <article class="card">
-        <div class="card-hd">
-          <span class="name">Canfield</span>
-          <span class="chip run">Playable</span>
-          <span class="lang">HTML &middot; JS</span>
-        </div>
-        <div class="card-bd">
-          <p>Canfield (Demon Patience) solitaire in one self-contained HTML file. Glass-blue JRPG
-          aesthetic, a reactive smoky particle field, and an XP-style win cascade. Drag anchors and
-          pointer-event layers verified with headless Playwright tests.</p>
-        </div>
-        <div class="card-ft"><a href="https://github.com/lhcoyle4/canfield">source &rarr; github/canfield</a></div>
-      </article>
-
-    </div>
-  </section>
-
-  <!-- TOOLBOX -->
-  <section id="toolbox">
-    <p class="sec-label">/usr/local/bin</p>
-    <h2>Toolbox</h2>
-    <p class="dim">Small systems, mostly single-file C, built because the itch was there.</p>
-    <div class="rows">
-      <div class="row">
-        <span class="r-name">crowdetect</span><span class="r-lang">Py &middot; CV</span>
-        <span class="r-desc">Raspberry Pi + webcam + YOLO: detects and counts the neighborhood crows.</span>
-        <span class="r-link"><a href="https://github.com/lhcoyle4/crowdetect">repo</a></span>
-      </div>
-      <div class="row">
-        <span class="r-name">taskman</span><span class="r-lang">C</span>
-        <span class="r-desc">htop-alternative for Termux &mdash; process table and kill, no function keys required.</span>
-        <span class="r-link"><span class="dim">on-device</span></span>
-      </div>
-      <div class="row">
-        <span class="r-name">alt_drag_resizer</span><span class="r-lang">C++ &middot; Py</span>
-        <span class="r-desc">Alt-drag any window to move or resize it. Debian/X11.</span>
-        <span class="r-link"><a href="https://github.com/lhcoyle4/alt_drag_resizer_C">repo</a></span>
-      </div>
-      <div class="row">
-        <span class="r-name">terminal_launcher</span><span class="r-lang">C++</span>
-        <span class="r-desc">A tiny terminal-native launcher.</span>
-        <span class="r-link"><a href="https://github.com/lhcoyle4/terminal_launcher_C">repo</a></span>
-      </div>
-      <div class="row">
-        <span class="r-name">lens_ocr</span><span class="r-lang">C++</span>
-        <span class="r-desc">OCR experiments in C++.</span>
-        <span class="r-link"><a href="https://github.com/lhcoyle4/lens_ocr_C">repo</a></span>
-      </div>
-      <div class="row">
-        <span class="r-name">minres</span><span class="r-lang">C</span>
-        <span class="r-desc">Computes the minimum number of resistors needed to hit a target resistance.</span>
-        <span class="r-link"><a href="https://github.com/lhcoyle4/minres">repo</a></span>
-      </div>
-      <div class="row">
-        <span class="r-name">weather</span><span class="r-lang">Py</span>
-        <span class="r-desc">Weather, in the terminal, without the weather-site experience.</span>
-        <span class="r-link"><a href="https://github.com/lhcoyle4/weather">repo</a></span>
-      </div>
-      <div class="row">
-        <span class="r-name">zthief</span><span class="r-lang">C</span>
-        <span class="r-desc">No man page.</span>
-        <span class="r-link"><a href="https://github.com/lhcoyle4/zthief">repo</a></span>
-      </div>
-    </div>
-  </section>
-
-  <!-- ARCHIVE -->
-  <section id="archive">
-    <p class="sec-label">cold storage</p>
-    <h2>Archive // Bare Metal</h2>
-    <div class="rows">
-      <div class="row">
-        <span class="r-name">ThumbAssembler</span><span class="r-lang">C</span>
-        <span class="r-desc">An ARM Thumb assembler, written from scratch in C.</span>
-        <span class="r-link"><a href="https://github.com/lhcoyle4/ThumbAssembler">repo</a></span>
-      </div>
-      <div class="row">
-        <span class="r-name">ThumbFPGA</span><span class="r-lang">HDL</span>
-        <span class="r-desc">A Cortex-M3/M4F-like processor instantiated on an FPGA.</span>
-        <span class="r-link"><a href="https://github.com/lhcoyle4/ThumbFPGA">repo</a></span>
-      </div>
-      <div class="row">
-        <span class="r-name">16-bit ARM subroutines</span><span class="r-lang">ASM</span>
-        <span class="r-desc">Hand-rolled Thumb on a TM4C123 Cortex-M: memcpy, shift-add multiply, shift-sub divide.</span>
-        <span class="r-link"><a href="https://github.com/lhcoyle4/16bit-arm-memcpy">memcpy</a> &middot; <a href="https://github.com/lhcoyle4/16bit-arm-shiftaddmul">mul</a> &middot; <a href="https://github.com/lhcoyle4/16bit-arm-shiftsubdiv">div</a></span>
-      </div>
-      <div class="row">
-        <span class="r-name">intr0</span><span class="r-lang">ASM</span>
-        <span class="r-desc">A 28-byte demoscene intro.</span>
-        <span class="r-link"><a href="https://github.com/lhcoyle4/intr0">repo</a></span>
-      </div>
-      <div class="row">
-        <span class="r-name">arcade rebuilds</span><span class="r-lang">C</span>
-        <span class="r-desc">Asteroids, Vectrex-flavored; and Joust.</span>
-        <span class="r-link"><a href="https://github.com/lhcoyle4/asteroids_vectrex">asteroids</a> &middot; <a href="https://github.com/lhcoyle4/joust_C">joust</a></span>
-      </div>
-    </div>
-  </section>
-
-  <!-- GIS -->
-  <section id="gis">
-    <p class="sec-label">field work</p>
-    <h2>GIS &amp; Drone Mapping</h2>
-    <p>Remote sensing and spatial analysis, on foot and by air. Recent studies: rewilding in the
-    Chernobyl exclusion zone, a flood model for Portland, and a dike survey at Rayne's Neck.
-    The survey drone above exists to feed this work with cheap LiDAR and NDVI at hobbyist cost.</p>
-    <p><a href="https://github.com/lhcoyle4/gis-portfolio">case studies &rarr; github/gis-portfolio</a></p>
-  </section>
-
-  <!-- INTERESTS -->
-  <section id="interests">
-    <p class="sec-label">background processes</p>
-    <h2>Also Running</h2>
-    <ul class="chips">
-      <li>two wheels &mdash; pedals or pistons</li>
-      <li>procedural audio</li>
-      <li>Magic: The Gathering</li>
-      <li>demoscene &amp; retro silicon</li>
-      <li>crows (see: crowdetect)</li>
-    </ul>
-  </section>
-
-  <footer>
-    <p><a href="https://github.com/lhcoyle4">github.com/lhcoyle4</a></p>
-    <p>This page is one self-contained HTML file. No frameworks, no trackers, no requests &mdash;
-    nothing downloads until you boot the core. &copy; <span id="yr">2026</span> LHCOYLE4 &middot; Portland, ME</p>
-  </footer>
-
+<main>
+  <img class="page" src="portfolio/page-1.png" alt="Portfolio page 1 — title page with deployment-cycle illustration and contents">
+  <img class="page" src="portfolio/page-2.png" alt="Portfolio page 2 — letter of introduction" loading="lazy">
+  <img class="page" src="portfolio/page-3.png" alt="Portfolio page 3 — qualification summary" loading="lazy">
+  <img class="page" src="portfolio/page-4.png" alt="Portfolio page 4 — career timeline figures" loading="lazy">
+  <img class="page" src="portfolio/page-5.png" alt="Portfolio page 5 — technical capabilities chart and table" loading="lazy">
+  <img class="page" src="portfolio/page-6.png" alt="Portfolio page 6 — selected projects and education" loading="lazy">
 </main>
 
-<!-- CORE V3 OVERLAY — original shell, booted on demand -->
-<div id="coreOverlay" role="dialog" aria-modal="true" aria-label="Systems Core V3">
-  <div id="loader">
-    <div class="loader-spinner" aria-hidden="true"></div>
-    <div class="loader-title">LHCOYLE4 Systems Core booting&hellip;</div>
-    <div id="status-text">Downloading WebAssembly modules (0%)&hellip;</div>
-  </div>
-  <canvas class="emscripten" id="canvas" oncontextmenu="event.preventDefault()" tabindex="-1"></canvas>
-  <button class="btn" id="ejectBtn" type="button" aria-label="Eject: close Systems Core and return to the page">Eject</button>
-</div>
+<footer>
+  Prefer instruments to paper? The interactive WASM version of this site lives on as the
+  <a href="core.html">Systems Core</a>.<br>
+  Typeset in LaTeX (Palatino) &mdash; document sources on <a href="https://github.com/lhcoyle4">GitHub</a>.
+</footer>
 
-<script>
-(function(){
-  "use strict";
-  var overlay=document.getElementById("coreOverlay");
-  var statusElement=document.getElementById("status-text");
-  var loaderElement=document.getElementById("loader");
-  var bootBtn=document.getElementById("bootBtn");
-  var bootBtnTop=document.getElementById("bootBtnTop");
-  var bootBtnLabel=document.getElementById("bootBtnLabel");
-  var ejectBtn=document.getElementById("ejectBtn");
-  var coreLoaded=false,coreOpen=false;
-
-  /* ---- Emscripten Module glue: identical contract to the original shell ---- */
-  window.Module={
-    locateFile:function(t,e){return t.endsWith(".wasm")?e+t+"?v="+Date.now():e+t},
-    preRun:[],postRun:[],
-    print:function(t){t=Array.prototype.slice.call(arguments).join(" ");console.log(t)},
-    printErr:function(t){t=Array.prototype.slice.call(arguments).join(" ");console.error(t)},
-    canvas:document.getElementById("canvas"),
-    setStatus:function(t){
-      if(!Module.setStatus.last)Module.setStatus.last={time:Date.now(),text:""};
-      if(t!==Module.setStatus.last.text){
-        var e=t.match(/([^(]+)\((\d+(\.\d+)?)\/(\d+)\)/),n=Date.now();
-        if(e&&n-Module.setStatus.last.time<30)return;
-        Module.setStatus.last.time=n;Module.setStatus.last.text=t;
-        if(e)t=e[1]+"("+e[2]+"/"+e[4]+" B)";
-        statusElement.innerHTML=t;
-        if(""===t){loaderElement.style.opacity="0";
-          setTimeout(function(){loaderElement.style.display="none"},500)}
-      }
-    },
-    monitorRunDependencies:function(t){}
-  };
-
-  /* F1–F5 / Ctrl+1–5 belong to the core's shell — but only while it's open */
-  window.addEventListener("keydown",function(t){
-    if(!coreOpen)return;
-    if(t.key==="F1"||t.key==="F2"||t.key==="F3"||t.key==="F4"||t.key==="F5")t.preventDefault();
-    if(t.ctrlKey&&t.key>="1"&&t.key<="5")t.preventDefault();
-  });
-
-  function loadCore(){
-    if(coreLoaded)return;
-    coreLoaded=true;
-    var s=document.createElement("script");
-    s.async=true;
-    s.src="index.js?v="+Date.now();
-    s.onerror=function(){
-      coreLoaded=false;
-      statusElement.innerHTML="Boot failed: index.js did not load. Check the connection and press Boot again.";
-    };
-    document.body.appendChild(s);
-  }
-  function openCore(){
-    coreOpen=true;
-    overlay.classList.add("open");
-    document.body.classList.add("core-open");
-    bootBtnLabel.textContent="Resume Core V3";
-    bootBtnTop.lastChild.textContent="Resume V3";
-    loadCore();
-    ejectBtn.focus();
-  }
-  function closeCore(){
-    coreOpen=false;
-    overlay.classList.remove("open");
-    document.body.classList.remove("core-open");
-    bootBtn.focus();
-  }
-  bootBtn.addEventListener("click",openCore);
-  bootBtnTop.addEventListener("click",openCore);
-  ejectBtn.addEventListener("click",closeCore);
-  if(location.hash==="#core-boot"||location.search.indexOf("boot=1")!==-1)openCore();
-
-  /* ---- hero boot log typing (progressive: full text already in DOM if JS is off) ---- */
-  var reduced=window.matchMedia&&window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-  var lines=Array.prototype.slice.call(document.querySelectorAll("#bootlog li[data-type]"));
-  var caretEl=document.querySelector("#bootlog .caret");
-  if(!reduced&&lines.length){
-    if(caretEl)caretEl.style.visibility="hidden";
-    var payload=lines.map(function(li){
-      var spans=Array.prototype.slice.call(li.querySelectorAll("span")).filter(function(s){return !s.classList.contains("caret")});
-      var full=spans.map(function(s){return s.textContent});
-      spans.forEach(function(s){s.textContent=""});
-      return {spans:spans,full:full};
-    });
-    var L=0,S=0,C=0;
-    (function tick(){
-      if(L>=payload.length){if(caretEl)caretEl.style.visibility="visible";return}
-      var p=payload[L];
-      if(S>=p.spans.length){L++;S=0;C=0;setTimeout(tick,140);return}
-      var txt=p.full[S];
-      if(C<txt.length){p.spans[S].textContent=txt.slice(0,++C);setTimeout(tick,10)}
-      else{S++;C=0;tick()}
-    })();
-  }
-  document.getElementById("yr").textContent=String(new Date().getFullYear());
-})();
-</script>
 </body>
 </html>
