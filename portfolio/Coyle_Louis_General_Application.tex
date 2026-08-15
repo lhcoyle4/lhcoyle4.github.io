@@ -1,0 +1,141 @@
+% Louis H. Coyle II — General cover letter + résumé (merged, 3 pages)
+% Compile: pdflatex (run twice). Palatino, letter paper, white-paper style.
+\documentclass[10pt,letterpaper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{mathpazo}
+\usepackage[margin=1in,top=0.9in,bottom=1in,footskip=0.55in]{geometry}
+\usepackage{microtype}
+\usepackage{xcolor}
+\usepackage{enumitem}
+\usepackage{fancyhdr}
+\usepackage{lastpage}
+\usepackage[colorlinks=true,urlcolor=linkblue,linkcolor=black]{hyperref}
+\definecolor{linkblue}{RGB}{0,70,140}
+\hypersetup{pdftitle={Louis H. Coyle II --- Cover Letter and Resume},
+            pdfauthor={Louis H. Coyle II},
+            pdfsubject={General application: cover letter and resume}}
+
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{7pt}
+\setlength{\emergencystretch}{1em}
+\pagestyle{fancy}
+\fancyhf{}
+\renewcommand{\headrulewidth}{0pt}
+\fancyfoot[C]{\footnotesize Louis H. Coyle II \textbullet{} Cover Letter and R\'esum\'e \textbullet{} Page \thepage\ of \pageref*{LastPage}}
+
+\setlist[itemize]{leftmargin=1.4em,itemsep=1.5pt,parsep=0pt,topsep=2pt,label=\textbullet}
+
+\newcommand{\sect}[1]{\vspace{6pt}{\scshape\textls[60]{#1}}\par\vspace{-2pt}}
+\newcommand{\job}[3]{\vspace{3pt}\textbf{#1}\hfill #2\\*[0pt]\textit{#3}\par\vspace{-3pt}}
+\newcommand{\edurow}[2]{\makebox[6.4em][l]{#1}\parbox[t]{\dimexpr\textwidth-6.6em\relax}{#2}\par\vspace{1pt}}
+\newcommand{\contactline}{Portland, Maine \textbullet{} \href{mailto:lhcoyle4@gmail.com}{lhcoyle4@gmail.com} \textbullet{} \href{https://github.com/lhcoyle4}{github.com/lhcoyle4}}
+
+\begin{document}
+
+% ------------------------------------------------------------------ PAGE 1: LETTER
+\begin{center}
+  {\LARGE Louis H. Coyle II}\\[4pt]
+  {\small \contactline{} \textbullet{} August 2026}
+\end{center}
+\vspace{2pt}\hrule\vspace{14pt}
+
+Dear Hiring Manager,
+
+I am a technician. Sixteen years, five IT roles, three promotions. The job titles changed; the work did not: put working equipment in front of the people who depend on it, and keep honest records of what was done.
+
+For nearly four years I was the desktop technician for a research-administration office at the University of Southern Maine. I provisioned, configured, repaired, and inventoried every assigned and loaner machine the office owned, and I took support requests by ticket, phone, email, and walk-up. The office had no funded asset-management system, so I kept the inventory myself: one structured spreadsheet, reconciled against the storeroom shelves on every visit, with photographs to back it. Not glamorous. Accurate. When someone asked where a machine was, I could answer and prove it.
+
+The earlier roles each left a skill that stuck. ResNet in Boston taught me PXE network-boot imaging. At the University of Maine's Fogler Library I built and managed the backup images for the public PC fleet. At Seacoast Security I ran internal IT for an alarm company, installed servers, PCs, and printers in an office-wide overhaul, and was on call 24/7. At Tilson Technology Management I moved daily data among the Engineering, CAD, and Surveying teams, tracked utility-pole and conduit applications, verified construction invoices, and was promoted twice in twenty-seven months.
+
+I finished my B.S. in Computer Science in 2024, mid-career, and added a graduate certificate in GIS in 2025. The degree shows up at work as a scripting habit; a Python tool I wrote at Tilson replaced a multi-hour daily routine. The certificate took the work outdoors: drone photogrammetry, remote sensing, field data collection. The schooling has not stopped: statistics and biotechnology at Southern Maine Community College this term, the FAA Part 107 remote-pilot certificate next, and a master's in artificial intelligence at the Roux Institute planned after that. The computer-science background is the constant. I use it to streamline whatever the work will hand to software.
+
+I am a U.S. citizen with a valid driver's license, based in Portland, Maine, and open to relocation for the right role. I am patient with stressed users, comfortable lifting whatever needs lifting, and better in work that moves than in work that sits. The r\'esum\'e that follows has the details. Thank you for your time.
+
+\vspace{10pt}
+Sincerely,
+
+\vspace{14pt}
+\textbf{Louis H. Coyle II}
+
+\newpage
+% ------------------------------------------------------------------ PAGES 2--3: RESUME
+\begin{center}
+  {\LARGE R\'esum\'e}\\[5pt]
+  {\normalsize\textbf{Louis H. Coyle II}}\\[3pt]
+  {\small \contactline{}}
+\end{center}
+\vspace{2pt}\hrule\vspace{10pt}
+
+\textbf{Summary} --- Sixteen years of hands-on IT work across five roles, 2009--2025: front-line troubleshooting and service, hardware installation and repair, Windows imaging and deployment, and inventory kept accurate enough to prove. Three promotions. B.S.\ in Computer Science (2024); graduate certificate in GIS (2025). U.S.\ citizen; valid driver's license; Portland, Maine.
+
+\sect{Core Capabilities}
+\begin{itemize}
+  \item \textbf{Troubleshooting and service.} Sixteen years diagnosing hardware, software, and peripheral faults. Support by ticket queue, phone, email, and walk-up; 24/7 on-call experience.
+  \item \textbf{Hardware.} Component-level assembly and repair. Monitor, printer, and peripheral setup; server racking and cabling. Bench electronics from engineering school: soldering irons, oscilloscopes, microcontroller and FPGA builds.
+  \item \textbf{Imaging and deployment.} PXE network-boot reimaging; backup-image creation and management. A machine goes from bare metal to configured, verified, and documented.
+  \item \textbf{Records and documentation.} Asset inventories with photographic backup. Documentation written for technical and non-technical readers. Ticketing in TeamDynamix, Jira, and Salesforce.
+  \item \textbf{Software, automation, and GIS.} Python, PowerShell, Bash, Excel/VBA; Microsoft Office. ArcGIS Pro, QGIS, Pix4D, Survey123/QField, SNAP.
+\end{itemize}
+
+\sect{Experience}
+
+\job{Desktop Technician, Grants \& Contracts}{Oct 2021 -- May 2025}{University of Southern Maine --- Portland, Maine}
+\begin{itemize}
+  \item Provisioned, configured, repaired, and inventoried assigned and loaner desktops, laptops, monitors, and peripherals for a research-administration office.
+  \item Resolved TeamDynamix tickets by queue, phone, email, and walk-up; supported web-conferencing, AV, backup, and malware issues for non-technical staff.
+  \item Ran the loaner fleet through its whole cycle: prepare and image, configure, deploy and verify, support, recover, re-provision. Updated the records at every step.
+  \item Kept the hardware inventory by hand after no asset-management platform was funded: a structured spreadsheet reconciled on every storeroom visit, backed by photographs. Made the case to leadership for a barcode system.
+  \item Promoted from IT Specialist CL3 to the salaried Desktop Technician role.
+\end{itemize}
+
+\job{OSP Desktop Technician $\rightarrow$ OSP Coordinator $\rightarrow$ Licensing Coordinator}{Feb 2018 -- May 2020}{Tilson Technology Management (telecom-infrastructure firm) --- Portland, Maine}
+\begin{itemize}
+  \item Promoted twice in 27 months across three roles supporting outside-plant telecom construction.
+  \item Coordinated the daily data handoffs among the Engineering, CAD, and Surveying teams.
+  \item Created and tracked utility-pole and conduit applications; verified construction invoices; trained new hires.
+  \item Wrote Python tooling that replaced a multi-hour daily manual routine and cut the team's data-entry time.
+\end{itemize}
+
+\job{IT Technician}{2015 -- 2016}{Fogler Library, University of Maine --- Orono, Maine}
+\begin{itemize}
+  \item Created and managed backup images for the library's public PC fleet.
+\end{itemize}
+
+\job{IT Specialist}{2010 -- 2012}{Seacoast Security (security-alarm company) --- West Rockport, Maine}
+\begin{itemize}
+  \item Ran internal IT for a Maine alarm company; on call 24/7.
+  \item Installed servers, PCs, and printers in an office-wide technology overhaul; rewired and cleaned the server racks.
+  \item Drove the company service van to job sites, some of them hours from headquarters.
+\end{itemize}
+
+\job{IT Technician}{2009 -- 2010}{ResNet --- Boston, Massachusetts}
+\begin{itemize}
+  \item Front-line support for university residents; automated Windows reimaging over PXE network boot.
+\end{itemize}
+
+\sect{Selected Projects}
+\begin{itemize}
+  \item Drone survey of the granite dikes at York, Maine --- flew the site, processed the imagery in Pix4D to an orthomosaic and digital surface model, wrote the report.
+  \item Flood-inundation model of Portland, Maine --- municipal infrastructure data turned into decision-ready maps in ArcGIS Pro.
+  \item High-altitude weather balloon --- APRS telemetry, GPS, environment sensors. Field equipment that had to work the first time, far away.
+  \item Chernobyl vegetation-recovery time series --- three decades of satellite imagery processed in SNAP, with the work shown.
+  \item Embedded builds --- a path-finding rover in C, from breadboard to soldered board; a PS/2 keyboard interface and text editor on an FPGA; a MIDI synthesizer on a microcontroller with no floating-point unit.
+\end{itemize}
+
+\sect{Education}
+\edurow{2024}{\textbf{B.S., Computer Science} --- University of Southern Maine, Portland, Maine}
+\edurow{2025}{\textbf{Graduate Certificate, Geographic Information Systems} --- University of Southern Maine}
+\edurow{2026}{Statistics and biotechnology coursework, in progress --- Southern Maine Community College, South Portland, Maine}
+\edurow{2012--2015}{Coursework toward a B.S.\ in Computer Engineering --- DigiPen Institute of Technology, Redmond, Washington (79 credits)}
+\edurow{2015--2018}{Coursework toward a B.S.\ in Computer Engineering --- University of Maine, Orono, Maine (37 credits)}
+
+\vspace{2pt}
+The engineering years are listed on purpose. They are where the soldering irons, oscilloscopes, and assembly language live.
+
+Ahead: the FAA Part 107 remote-pilot certificate, then a master's in artificial intelligence at the Roux Institute in Portland.
+
+\sect{Additional}
+U.S.\ citizen. Valid driver's license. Comfortable lifting and moving equipment; a daily cyclist. Open to relocation for the right role. References on request.
+
+\end{document}
