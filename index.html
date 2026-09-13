@@ -1,120 +1,465 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="description" content="Application portfolio of Louis H. Coyle II — IT operations, deployment & desktop support, software & automation, GIS. Portland, Maine.">
-<meta name="theme-color" content="#faf9f6">
-<title>Louis H. Coyle II — Portfolio</title>
+<title>QOYL — 3D printing, computer repair, IT support, bicycle repair, drone photography · Cape Elizabeth, Maine</title>
+<meta name="description" content="QOYL is a one-person technical shop in Cape Elizabeth, Maine: 3D printing on a large-format printer, custom computer builds and repair, IT support, bicycle repair, drone photography, and refurbished equipment for sale. Email qoyl@proton.me.">
+<meta name="color-scheme" content="light">
+<meta name="theme-color" content="#ffffff">
+<link rel="canonical" href="https://qoyl.store/">
+<link rel="icon" href="brand/favicon.svg" type="image/svg+xml">
+<link rel="icon" href="brand/favicon-32.png" sizes="32x32" type="image/png">
+<link rel="apple-touch-icon" href="brand/apple-touch-icon.png">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="QOYL">
+<meta property="og:title" content="QOYL — a technical shop in Cape Elizabeth, Maine">
+<meta property="og:description" content="3D printing, computer builds and repair, IT support, bicycle repair, drone photography, and refurbished equipment for sale. Email qoyl@proton.me.">
+<meta property="og:url" content="https://qoyl.store/">
+<meta property="og:image" content="https://qoyl.store/brand/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "LocalBusiness",
+  "name": "QOYL",
+  "url": "https://qoyl.store/",
+  "email": "qoyl@proton.me",
+  "image": "https://qoyl.store/brand/og.png",
+  "description": "One-person technical shop: 3D printing, computer builds and repair, IT support, bicycle repair, drone photography, and refurbished equipment for sale.",
+  "address": {"@type": "PostalAddress", "addressLocality": "Cape Elizabeth", "addressRegion": "ME", "addressCountry": "US"},
+  "areaServed": "Greater Portland, Maine",
+  "founder": {"@type": "Person", "name": "Louie"},
+  "sameAs": ["https://www.ebay.com/usr/lo862370", "https://github.com/lhcoyle4"]
+}
+</script>
 <style>
+  /* ---------- QOYL identity tokens (QF-000, Rev A) ---------- */
   :root {
-    --paper: #ffffff;
-    --desk: #eceae5;
-    --ink: #1c1c1c;
-    --navy: #1a365d;
-    --gray: #666666;
+    --ink:    #171A1F;
+    --navy:   #1C2A44;
+    --copper: #A9762F;
+    --slate:  #67707E;
+    --rule:   #DDE2E8;
+    --paper:  #FFFFFF;
+    --copper-on-ink: #B8843A;   /* copper text on the dark tile, lifted a shade for AA contrast */
+    --sans: "Helvetica Neue", Helvetica, Arial, "Liberation Sans", sans-serif;
+    --serif: "Times New Roman", Times, "Liberation Serif", "Nimbus Roman", serif;
+    --mono: "Courier New", Courier, "Liberation Mono", monospace;
+    --track: 0.3em;            /* the wordmark is always letterspaced 30 % */
+    --gutter: clamp(20px, 5vw, 64px);
+    --measure: 1120px;
   }
+
   * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; scroll-padding-top: 88px; -webkit-text-size-adjust: 100%; }
+  @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
   body {
     margin: 0;
-    background: var(--desk);
+    background: var(--paper);
     color: var(--ink);
-    font-family: 'Palatino Linotype', Palatino, 'Book Antiqua', 'URW Palladio L', Georgia, serif;
+    font-family: var(--sans);
+    font-size: 17px;
+    line-height: 1.6;
     -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
-  header {
-    text-align: center;
-    padding: 42px 16px 10px;
+  ::selection { background: var(--ink); color: var(--paper); }
+  a { color: inherit; text-decoration: underline; text-decoration-color: var(--rule); text-decoration-thickness: 1px; text-underline-offset: 0.2em; transition: text-decoration-color .15s, color .15s; }
+  a:hover { text-decoration-color: var(--copper); }
+  :focus-visible { outline: 2px solid var(--copper); outline-offset: 3px; }
+  h1, h2, h3 { margin: 0; font-weight: 700; line-height: 1.1; letter-spacing: -0.01em; }
+  p { margin: 0 0 1em; }
+  p:last-child { margin-bottom: 0; }
+  svg { display: block; }
+
+  .skip { position: absolute; left: -9999px; top: 12px; z-index: 100; background: var(--ink); color: var(--paper); padding: 10px 14px; font-size: 13px; letter-spacing: 0.12em; text-transform: uppercase; text-decoration: none; }
+  .skip:focus { left: 12px; }
+
+  .wrap { max-width: var(--measure); margin: 0 auto; padding: 0 var(--gutter); }
+
+  /* tracked small caps label — the specimen's "PRIMARY LOCKUP", "01 / VISION" */
+  .label { font-size: 11px; letter-spacing: var(--track); text-transform: uppercase; color: var(--slate); font-weight: 400; }
+  .label b { color: var(--ink); font-weight: 700; }
+  /* short copper stroke that opens every section, as on the brochure */
+  .stroke { display: block; width: 40px; height: 2px; background: var(--copper); margin: 0 0 14px; }
+  /* the letterhead rule: hairline with a copper segment at the left */
+  .rule { position: relative; height: 1px; background: var(--rule); }
+  .rule::before { content: ""; position: absolute; left: 0; top: -1px; width: 56px; height: 3px; background: var(--copper); }
+
+  /* ---------- header ---------- */
+  .hd { position: sticky; top: 0; z-index: 20; background: rgba(255,255,255,.94); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
+  .hd-in { display: flex; align-items: center; gap: 24px; min-height: 76px; padding-top: 12px; padding-bottom: 12px; }
+  .lockup { display: flex; align-items: center; gap: 14px; text-decoration: none; color: var(--ink); }
+  .lockup .mark { width: 38px; height: 36px; flex: none; }
+  .wordmark { font-weight: 700; font-size: 20px; letter-spacing: var(--track); line-height: 1; text-transform: uppercase; }
+  .tagline { display: block; margin-top: 5px; font-size: 8.5px; letter-spacing: 0.34em; text-transform: uppercase; color: var(--slate); }
+  .nav { margin-left: auto; display: flex; flex-wrap: wrap; gap: 4px 26px; }
+  .nav a { font-size: 11px; letter-spacing: 0.22em; text-transform: uppercase; text-decoration: none; padding: 8px 0; border-bottom: 1px solid transparent; }
+  .nav a:hover { border-bottom-color: var(--copper); }
+
+  /* ---------- hero ---------- */
+  .hero { position: relative; overflow: hidden; padding-top: 0; padding-bottom: 0; }
+  .hero-in { position: relative; display: grid; grid-template-columns: minmax(0, 60%) minmax(0, 40%); gap: 0 40px; padding-top: clamp(40px, 6vw, 80px); padding-bottom: clamp(48px, 7vw, 96px); }
+  .desk { grid-column: 2; text-align: right; }
+  .hero h1 { grid-column: 1; font-size: clamp(2.25rem, 5.6vw, 4.4rem); letter-spacing: -0.02em; line-height: 1.02; margin: 26px 0 28px; }
+  .hero h1 span { display: block; }
+  .lede { grid-column: 1; font-family: var(--serif); font-size: clamp(1.15rem, 1.6vw, 1.4rem); line-height: 1.5; max-width: 30em; color: var(--ink); }
+  .lede em, .letter em { font-style: italic; }
+  .actions { grid-column: 1; display: flex; flex-wrap: wrap; gap: 12px; margin-top: 34px; align-items: center; }
+  .btn { display: inline-flex; align-items: center; min-height: 46px; padding: 0 22px; border: 1px solid var(--ink); background: var(--paper); color: var(--ink); font-size: 11.5px; letter-spacing: 0.22em; text-transform: uppercase; text-decoration: none; white-space: nowrap; transition: background .15s, color .15s, border-color .15s; }
+  .btn:hover { border-color: var(--copper); color: var(--copper); }
+  .btn.primary { background: var(--ink); color: var(--paper); }
+  .btn.primary:hover { background: var(--navy); border-color: var(--navy); color: var(--paper); }
+  .fine { grid-column: 1; margin-top: 22px; font-size: 13px; color: var(--slate); }
+  .fine a { text-decoration-color: var(--slate); }
+  .hero-in > * { position: relative; z-index: 1; }
+  .hero-in > .watermark { position: absolute; right: 0; top: 17%; width: min(440px, 34vw); aspect-ratio: 184.40 / 174.29; pointer-events: none; color: var(--rule); z-index: 0; }
+
+  /* ---------- sections ---------- */
+  section { padding-top: clamp(48px, 7vw, 96px); padding-bottom: clamp(48px, 7vw, 96px); }
+  section + section { border-top: 1px solid var(--rule); }
+  .sec-head { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 24px; align-items: end; margin-bottom: clamp(28px, 4vw, 48px); }
+  .sec-head h2 { font-size: clamp(1.7rem, 3vw, 2.4rem); margin-top: 10px; letter-spacing: -0.015em; }
+  .sec-head .aside { color: var(--slate); font-size: 14px; max-width: 30em; text-align: right; }
+
+  /* the ruled ledger — one hairline per row, like the QF-1xx forms */
+  .ledger { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--rule); }
+  .ledger li { display: grid; grid-template-columns: 56px minmax(220px, 26%) minmax(0, 1fr); gap: 0 32px; padding: 30px 0; border-bottom: 1px solid var(--rule); }
+  .ledger .num { font-size: 12px; letter-spacing: 0.2em; color: var(--slate); padding-top: 6px; font-variant-numeric: tabular-nums; }
+  .ledger h3 { font-size: 1.2rem; letter-spacing: -0.005em; }
+  .ledger .body p { max-width: 62ch; }
+  .spec { margin-top: 12px; font-size: 12px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--slate); line-height: 1.8; max-width: none; }
+  .spec span:not(.dot) { white-space: nowrap; }
+  .spec .dot { color: var(--copper); padding: 0 .35em; }
+
+  /* ---------- for sale ---------- */
+  .stock { width: 100%; border-collapse: collapse; border-top: 1px solid var(--ink); font-size: 15.5px; }
+  .stock th { text-align: left; font-size: 11px; letter-spacing: 0.22em; text-transform: uppercase; color: var(--slate); font-weight: 400; padding: 12px 16px 12px 0; border-bottom: 1px solid var(--rule); }
+  .stock td { padding: 16px 16px 16px 0; border-bottom: 1px solid var(--rule); vertical-align: top; }
+  .stock td:last-child, .stock th:last-child { padding-right: 0; }
+  .stock .price { white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .stock .empty td { color: var(--slate); font-family: var(--serif); font-style: italic; font-size: 17px; padding: 26px 0; }
+  .stock .sold { color: var(--slate); text-decoration: line-through; }
+  .listed { margin-top: 24px; display: flex; flex-wrap: wrap; gap: 8px 22px; align-items: baseline; font-size: 14px; }
+  .listed .label { font-size: 10.5px; }
+  .two-col { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: clamp(32px, 6vw, 96px); align-items: start; }
+  .two-col .intro p { max-width: 40em; }
+
+  /* ---------- about ---------- */
+  .about { display: grid; grid-template-columns: minmax(0, 7fr) minmax(0, 5fr); gap: clamp(32px, 6vw, 96px); }
+  .letter { font-family: var(--serif); font-size: clamp(1.1rem, 1.5vw, 1.3rem); line-height: 1.6; max-width: 36em; }
+  .letter p { margin-bottom: 1.1em; }
+  .sig { margin-top: 36px; display: flex; align-items: center; gap: 36px; }
+  .sig .name { font-family: var(--serif); font-style: italic; font-size: 1.6rem; line-height: 1; }
+  .sig .for { margin-top: 8px; }
+  .seal { width: 108px; height: 108px; flex: none; color: var(--copper); }
+  .particulars { border-left: 1px dashed var(--rule); padding-left: clamp(24px, 3vw, 48px); }
+  .particulars dl { margin: 0; display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 0 20px; }
+  .particulars dt { font-size: 11px; letter-spacing: 0.22em; text-transform: uppercase; color: var(--slate); padding: 14px 0; border-bottom: 1px solid var(--rule); }
+  .particulars dd { margin: 0; padding: 12px 0; border-bottom: 1px solid var(--rule); font-size: 15.5px; }
+  .particulars dd small { display: block; color: var(--slate); font-size: 13px; }
+
+  /* ---------- contact (the reversed tile) ---------- */
+  .contact { background: var(--ink); color: var(--paper); }
+  .contact ::selection { background: var(--copper); color: var(--ink); }
+  .contact .stroke { background: var(--copper); }
+  .contact .label { color: rgba(255,255,255,.62); }
+  .contact .label b { color: var(--paper); }
+  .contact-in { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: clamp(36px, 6vw, 96px); align-items: center; }
+  .tile { display: flex; flex-direction: column; align-items: flex-start; gap: 22px; }
+  .tile .mark { width: 92px; height: 88px; color: var(--paper); }
+  .tile .wordmark { font-size: 22px; }
+  .tile .tagline { color: var(--copper-on-ink); font-size: 10px; }
+  .contact h2 { font-size: clamp(1.7rem, 3vw, 2.4rem); margin-top: 10px; }
+  .contact .email { display: inline-block; margin: 22px 0 26px; font-size: clamp(1.4rem, 3.4vw, 2.3rem); font-weight: 700; letter-spacing: -0.01em; text-decoration: none; border-bottom: 2px solid var(--copper); padding-bottom: 4px; word-break: break-all; }
+  .contact .email:hover { color: var(--copper); }
+  .contact p { max-width: 44em; color: rgba(255,255,255,.82); }
+  .contact .meta { margin-top: 26px; font-size: 13px; letter-spacing: 0.08em; color: rgba(255,255,255,.62); }
+
+  /* ---------- footer ---------- */
+  footer { padding: 28px 0 40px; }
+  .ft { display: grid; grid-template-columns: 1fr auto 1fr; gap: 12px 24px; align-items: center; font-size: 12px; color: var(--slate); }
+  .ft .mono { font-family: var(--mono); font-size: 11px; letter-spacing: 0.06em; }
+  .ft .right { text-align: right; }
+  .ft .center { text-align: center; }
+  .ft a { text-decoration-color: var(--rule); }
+  .ft .note { grid-column: 1 / -1; text-align: center; font-size: 12px; margin-top: 8px; }
+
+  /* ---------- responsive ---------- */
+  @media (max-width: 960px) {
+    .hero-in { grid-template-columns: minmax(0, 1fr); }
+    .desk { grid-column: 1; text-align: left; }
+    .hero h1, .lede, .actions, .fine { grid-column: 1; }
+    .hero-in > .watermark { position: relative; top: auto; right: auto; width: min(220px, 52vw); justify-self: end; margin-top: 28px; }
+    .about, .two-col, .contact-in { grid-template-columns: minmax(0, 1fr); }
+    .particulars { border-left: 0; padding-left: 0; border-top: 1px dashed var(--rule); padding-top: 24px; }
+    .ledger li { grid-template-columns: 56px minmax(0, 1fr); }
+    .ledger .body { grid-column: 2; margin-top: 10px; }
   }
-  header .kicker {
-    font-variant: small-caps;
-    letter-spacing: 0.14em;
-    color: var(--gray);
-    font-size: 0.85rem;
+  @media (max-width: 640px) {
+    body { font-size: 16px; }
+    .hd-in { flex-wrap: wrap; gap: 10px 16px; padding-top: 14px; padding-bottom: 12px; }
+    .nav { margin-left: 0; width: 100%; gap: 2px 18px; }
+    .nav a { padding: 4px 0; }
+    .tagline { display: none; }
+    .ledger li { grid-template-columns: minmax(0, 1fr); gap: 6px; padding: 24px 0; }
+    .ledger .num { padding-top: 0; }
+    .ledger .body { grid-column: 1; margin-top: 6px; }
+    .sec-head { grid-template-columns: minmax(0, 1fr); gap: 10px; align-items: start; }
+    .sec-head .aside { text-align: left; }
+    .stock, .stock thead, .stock tbody, .stock tr, .stock td, .stock th { display: block; }
+    .stock thead { position: absolute; left: -9999px; }
+    .stock tr { border-bottom: 1px solid var(--rule); padding: 14px 0; }
+    .stock td { border: 0; padding: 3px 0; }
+    .stock td[data-label]::before { content: attr(data-label); display: block; font-size: 10.5px; letter-spacing: 0.22em; text-transform: uppercase; color: var(--slate); }
+    .stock .empty td { padding: 18px 0; }
+    .ft { grid-template-columns: minmax(0, 1fr); text-align: center; }
+    .ft .right, .ft .center { text-align: center; }
+    .sig { gap: 24px; }
+    .seal { width: 88px; height: 88px; }
   }
-  header h1 {
-    font-size: 1.9rem;
-    font-weight: 700;
-    margin: 6px 0 2px;
+  @media (max-width: 360px) {
+    .spec span:not(.dot) { white-space: normal; }
   }
-  header .sub {
-    color: var(--gray);
-    font-size: 0.95rem;
-    margin: 0 0 14px;
+  @media print {
+    .hd { position: static; }
+    .nav, .actions, .watermark { display: none; }
+    .contact { background: none; color: var(--ink); border-top: 1px solid var(--ink); }
+    .contact .tile .mark { color: var(--ink); }
+    .contact p, .contact .meta, .contact .label { color: var(--ink); }
+    a { text-decoration: none; }
   }
-  nav.actions {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 10px;
-    justify-content: center;
-    padding-bottom: 6px;
-  }
-  nav.actions a {
-    display: inline-block;
-    border: 1px solid var(--navy);
-    border-radius: 4px;
-    padding: 7px 14px;
-    color: var(--navy);
-    text-decoration: none;
-    font-size: 0.9rem;
-    background: var(--paper);
-  }
-  nav.actions a.primary {
-    background: var(--navy);
-    color: var(--paper);
-  }
-  nav.actions a:hover { filter: brightness(1.08); }
-  main {
-    max-width: 880px;
-    margin: 18px auto 0;
-    padding: 0 12px 30px;
-  }
-  .page {
-    display: block;
-    width: 100%;
-    height: auto;
-    background: var(--paper);
-    border: 1px solid #d8d4cc;
-    box-shadow: 0 2px 10px rgba(30, 30, 30, 0.10);
-    margin: 0 auto 26px;
-  }
-  footer {
-    text-align: center;
-    color: var(--gray);
-    font-size: 0.85rem;
-    padding: 8px 16px 46px;
-    line-height: 1.7;
-  }
-  footer a { color: var(--navy); }
 </style>
 </head>
 <body>
+<a class="skip" href="#main">Skip to content</a>
 
-<header>
-  <div class="kicker">application portfolio</div>
-  <h1>Louis H. Coyle II</h1>
-  <p class="sub">IT Operations &bull; Deployment &amp; Desktop Support &bull; Software &amp; Automation &bull; GIS &mdash; Portland, Maine</p>
-  <nav class="actions">
-    <a class="primary" href="portfolio/Coyle_General_Portfolio.pdf" download>Full Portfolio (PDF)</a>
-    <a href="portfolio/Coyle_Louis_General_Application.pdf" download>Cover Letter + R&eacute;sum&eacute; (PDF)</a>
-    <a href="mailto:lhcoyle4@gmail.com">Email</a>
-    <a href="https://github.com/lhcoyle4">GitHub</a>
-  </nav>
+<!-- The coil mark, once, reused below. Geometry fitted from the identity specimen (see brand/make_mark.py). -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+  <defs>
+    <!--QOYL-MARK-SYMBOLS:BEGIN--><symbol id="qoyl-mark" viewBox="-92.22 -81.77 194.59 184.46"><path d="M6.3 12.5 L7.1 12.4 L8 12.3 L8.8 12.2 L9.7 11.9 L10.6 11.7 L11.4 11.3 L12.3 10.9 L13.2 10.5 L14 10 L14.8 9.4 L15.6 8.8 L16.4 8.1 L17.1 7.3 L17.8 6.5 L18.5 5.7 L19.1 4.8 L19.7 3.8 L20.2 2.8 L20.7 1.7 L21.1 0.6 L21.5 -0.5 L21.8 -1.7 L22 -2.9 L22.2 -4.2 L22.3 -5.4 L22.3 -6.7 L22.2 -8 L22.1 -9.4 L21.9 -10.7 L21.6 -12 L21.2 -13.3 L20.8 -14.7 L20.2 -16 L19.6 -17.3 L18.9 -18.6 L18.1 -19.8 L17.3 -21 L16.3 -22.2 L15.3 -23.4 L14.2 -24.5 L13 -25.5 L11.8 -26.5 L10.5 -27.4 L9.1 -28.3 L7.7 -29.1 L6.2 -29.8 L4.6 -30.5 L3 -31 L1.4 -31.5 L-0.3 -31.9 L-2.1 -32.2 L-3.8 -32.4 L-5.6 -32.5 L-7.4 -32.5 L-9.3 -32.4 L-11.1 -32.2 L-13 -31.8 L-14.8 -31.4 L-16.6 -30.9 L-18.5 -30.3 L-20.3 -29.5 L-22 -28.7 L-23.8 -27.7 L-25.5 -26.7 L-27.1 -25.5 L-28.7 -24.3 L-30.3 -22.9 L-31.8 -21.5 L-33.2 -19.9 L-34.5 -18.3 L-35.8 -16.5 L-36.9 -14.7 L-38 -12.8 L-39 -10.9 L-39.9 -8.8 L-40.6 -6.8 L-41.3 -4.6 L-41.8 -2.4 L-42.3 -0.2 L-42.6 2.1 L-42.8 4.4 L-42.8 6.8 L-42.7 9.2 L-42.5 11.5 L-42.2 13.9 L-41.7 16.3 L-41.1 18.6 L-40.4 21 L-39.5 23.3 L-38.5 25.6 L-37.3 27.8 L-36.1 30 L-34.7 32.2 L-33.1 34.2 L-31.5 36.2 L-29.7 38.1 L-27.8 40 L-25.8 41.7 L-23.7 43.4 L-21.5 44.9 L-19.2 46.3 L-16.8 47.6 L-14.4 48.8 L-11.8 49.8 L-9.2 50.8 L-6.5 51.5 L-3.7 52.2 L-0.9 52.6 L1.9 53 L4.8 53.2 L7.7 53.2 L10.6 53 L13.5 52.7 L16.4 52.3 L19.3 51.7 L22.2 50.9 L25.1 49.9 L27.9 48.8 L30.7 47.6 L33.4 46.1 L36 44.6 L38.6 42.8 L41.1 41 L43.5 38.9 L45.8 36.8 L48 34.5 L50.1 32 L52.1 29.5 L53.9 26.8 L55.6 24 L57.1 21.1 L58.5 18.1 L59.7 15 L60.8 11.9 L61.7 8.7 L62.5 5.4 L63 2 L63.4 -1.4 L63.6 -4.8 L63.6 -8.3 L63.4 -11.7 L63 -15.2 L62.5 -18.6 L61.7 -22.1 L60.8 -25.5 L59.6 -28.9 L58.3 -32.2 L56.8 -35.5 L55.1 -38.7 L53.2 -41.8 L51.2 -44.9 L49 -47.8 L46.6 -50.6 L44 -53.3 L41.3 -55.9 L38.5 -58.3 L35.4 -60.6 L32.3 -62.7 L29 -64.7 L25.7 -66.5 L22.2 -68.1 L18.6 -69.6 L14.9 -70.8 L11.1 -71.9 L7.3 -72.7 L3.4 -73.4 L-0.6 -73.8 L-4.5 -74 L-8.5 -74 L-12.6 -73.8 L-16.6 -73.4 L-20.6 -72.7 L-24.6 -71.9 L-28.5 -70.8 L-32.4 -69.5 L-36.3 -67.9 L-40.1 -66.2 L-43.8 -64.2 L-47.4 -62.1 L-50.9 -59.7 L-54.2 -57.2 L-57.5 -54.4 L-60.6 -51.5 L-63.6 -48.4 L-66.4 -45.1 L-69 -41.7 L-71.4 -38.1 L-73.7 -34.3 L-75.8 -30.5 L-77.6 -26.5 L-79.3 -22.4 L-80.7 -18.2 L-81.9 -13.9 L-82.9 -9.5 L-83.7 -5.1 L-84.2 -0.6 L-84.5 4 L-84.5 8.5 L-84.2 13.1 L-83.8 17.7 L-83 22.2 L-82.1 26.8 L-80.9 31.3 L-79.4 35.7 L-77.7 40.1 L-75.7 44.4 L-73.5 48.6 L-71.1 52.7 L-68.5 56.6 L-65.6 60.5 L-62.5 64.2 L-59.2 67.7 L-55.7 71 L-52 74.2 L-48.1 77.2 L-44.1 80 L-39.9 82.6 L-35.6 84.9 L-31.1 87 L-26.5 88.9 L-21.7 90.6 L-16.9 92 L-12 93.1 L-7 94 L-2 94.6 L3.1 94.9 L8.2 94.9 L13.4 94.7 L18.5 94.2 L23.6 93.4 L28.7 92.4 L33.7 91 L38.7 89.4 L43.6 87.5 L48.4 85.4 L53.1 83 L57.7 80.3 L62.2 77.4 L66.5 74.2 L70.6 70.8 L94.6 94.8" fill="none" stroke="currentColor" stroke-width="15.5" stroke-linecap="round" stroke-linejoin="round"/><circle cx="0.0" cy="0.0" r="13.0" fill="currentColor"/></symbol><symbol id="qoyl-mark-thin" viewBox="-87.14 -76.69 184.40 174.29"><path d="M6.3 12.5 L6.8 12.4 L7.3 12.4 L7.8 12.3 L8.3 12.3 L8.8 12.2 L9.4 12 L9.9 11.9 L10.4 11.7 L10.9 11.5 L11.4 11.3 L12 11.1 L12.5 10.9 L13 10.6 L13.5 10.3 L14 10 L14.5 9.6 L15 9.3 L15.4 8.9 L15.9 8.5 L16.4 8.1 L16.8 7.6 L17.3 7.2 L17.7 6.7 L18.1 6.2 L18.5 5.7 L18.9 5.1 L19.2 4.6 L19.6 4 L19.9 3.4 L20.2 2.8 L20.5 2.1 L20.8 1.5 L21 0.8 L21.3 0.2 L21.5 -0.5 L21.7 -1.2 L21.8 -1.9 L22 -2.7 L22.1 -3.4 L22.2 -4.2 L22.2 -4.9 L22.3 -5.7 L22.3 -6.5 L22.3 -7.2 L22.2 -8 L22.2 -8.8 L22.1 -9.6 L21.9 -10.4 L21.8 -11.2 L21.6 -12 L21.4 -12.8 L21.1 -13.6 L20.9 -14.4 L20.6 -15.2 L20.2 -16 L19.9 -16.8 L19.5 -17.5 L19.1 -18.3 L18.6 -19.1 L18.1 -19.8 L17.6 -20.6 L17.1 -21.3 L16.5 -22 L15.9 -22.7 L15.3 -23.4 L14.7 -24 L14 -24.7 L13.3 -25.3 L12.6 -25.9 L11.8 -26.5 L11 -27.1 L10.2 -27.6 L9.4 -28.1 L8.5 -28.6 L7.7 -29.1 L6.8 -29.5 L5.9 -29.9 L4.9 -30.3 L4 -30.7 L3 -31 L2 -31.3 L1 -31.6 L0 -31.8 L-1 -32 L-2.1 -32.2 L-3.1 -32.3 L-4.2 -32.4 L-5.3 -32.5 L-6.3 -32.5 L-7.4 -32.5 L-8.5 -32.4 L-9.6 -32.3 L-10.7 -32.2 L-11.8 -32 L-13 -31.8 L-14.1 -31.6 L-15.2 -31.3 L-16.3 -31 L-17.4 -30.7 L-18.5 -30.3 L-19.5 -29.8 L-20.6 -29.4 L-21.7 -28.9 L-22.7 -28.3 L-23.8 -27.7 L-24.8 -27.1 L-25.8 -26.5 L-26.8 -25.8 L-27.8 -25 L-28.7 -24.3 L-29.7 -23.5 L-30.6 -22.6 L-31.5 -21.8 L-32.3 -20.8 L-33.2 -19.9 L-34 -18.9 L-34.8 -17.9 L-35.5 -16.9 L-36.2 -15.8 L-36.9 -14.7 L-37.6 -13.6 L-38.2 -12.4 L-38.8 -11.3 L-39.3 -10.1 L-39.9 -8.8 L-40.3 -7.6 L-40.8 -6.3 L-41.2 -5 L-41.5 -3.7 L-41.8 -2.4 L-42.1 -1.1 L-42.3 0.3 L-42.5 1.7 L-42.7 3.1 L-42.8 4.4 L-42.8 5.9 L-42.8 7.3 L-42.8 8.7 L-42.7 10.1 L-42.5 11.5 L-42.3 13 L-42.1 14.4 L-41.8 15.8 L-41.5 17.2 L-41.1 18.6 L-40.7 20 L-40.2 21.4 L-39.7 22.8 L-39.1 24.2 L-38.5 25.6 L-37.8 26.9 L-37.1 28.3 L-36.3 29.6 L-35.5 30.9 L-34.7 32.2 L-33.8 33.4 L-32.8 34.6 L-31.8 35.8 L-30.8 37 L-29.7 38.1 L-28.6 39.3 L-27.4 40.3 L-26.2 41.4 L-25 42.4 L-23.7 43.4 L-22.4 44.3 L-21.1 45.2 L-19.7 46 L-18.3 46.8 L-16.8 47.6 L-15.4 48.3 L-13.9 49 L-12.3 49.6 L-10.8 50.2 L-9.2 50.8 L-7.6 51.2 L-5.9 51.7 L-4.3 52 L-2.6 52.4 L-0.9 52.6 L0.8 52.9 L2.5 53 L4.2 53.1 L5.9 53.2 L7.7 53.2 L9.4 53.1 L11.2 53 L12.9 52.8 L14.7 52.6 L16.4 52.3 L18.2 51.9 L19.9 51.5 L21.6 51.1 L23.4 50.5 L25.1 49.9 L26.8 49.3 L28.5 48.6 L30.1 47.8 L31.8 47 L33.4 46.1 L35 45.2 L36.6 44.2 L38.1 43.2 L39.6 42.1 L41.1 41 L42.6 39.8 L44 38.5 L45.4 37.2 L46.7 35.9 L48 34.5 L49.3 33 L50.5 31.5 L51.7 30 L52.8 28.4 L53.9 26.8 L54.9 25.1 L55.9 23.4 L56.8 21.7 L57.7 19.9 L58.5 18.1 L59.3 16.3 L60 14.4 L60.6 12.5 L61.2 10.6 L61.7 8.7 L62.2 6.7 L62.6 4.7 L62.9 2.7 L63.2 0.7 L63.4 -1.4 L63.5 -3.4 L63.6 -5.5 L63.6 -7.6 L63.5 -9.6 L63.4 -11.7 L63.2 -13.8 L62.9 -15.9 L62.6 -18 L62.2 -20 L61.7 -22.1 L61.2 -24.1 L60.6 -26.2 L59.9 -28.2 L59.1 -30.2 L58.3 -32.2 L57.4 -34.2 L56.5 -36.1 L55.5 -38.1 L54.4 -40 L53.2 -41.8 L52 -43.7 L50.8 -45.4 L49.4 -47.2 L48 -48.9 L46.6 -50.6 L45.1 -52.2 L43.5 -53.8 L41.9 -55.4 L40.2 -56.9 L38.5 -58.3 L36.7 -59.7 L34.8 -61 L32.9 -62.3 L31 -63.5 L29 -64.7 L27 -65.8 L25 -66.8 L22.9 -67.8 L20.7 -68.7 L18.6 -69.6 L16.4 -70.3 L14.1 -71 L11.9 -71.7 L9.6 -72.2 L7.3 -72.7 L5 -73.1 L2.6 -73.5 L0.2 -73.7 L-2.1 -73.9 L-4.5 -74 L-6.9 -74 L-9.3 -74 L-11.8 -73.9 L-14.2 -73.7 L-16.6 -73.4 L-19 -73 L-21.4 -72.6 L-23.8 -72 L-26.2 -71.4 L-28.5 -70.8 L-30.9 -70 L-33.2 -69.2 L-35.5 -68.3 L-37.8 -67.3 L-40.1 -66.2 L-42.3 -65.1 L-44.5 -63.8 L-46.7 -62.5 L-48.8 -61.2 L-50.9 -59.7 L-52.9 -58.2 L-54.9 -56.6 L-56.8 -55 L-58.7 -53.3 L-60.6 -51.5 L-62.4 -49.7 L-64.1 -47.8 L-65.8 -45.8 L-67.4 -43.8 L-69 -41.7 L-70.5 -39.5 L-71.9 -37.3 L-73.3 -35.1 L-74.6 -32.8 L-75.8 -30.5 L-76.9 -28.1 L-78 -25.7 L-79 -23.2 L-79.9 -20.7 L-80.7 -18.2 L-81.5 -15.6 L-82.2 -13 L-82.7 -10.4 L-83.3 -7.7 L-83.7 -5.1 L-84 -2.4 L-84.3 0.3 L-84.4 3.1 L-84.5 5.8 L-84.5 8.5 L-84.4 11.3 L-84.2 14 L-83.9 16.8 L-83.5 19.5 L-83 22.2 L-82.5 25 L-81.9 27.7 L-81.1 30.4 L-80.3 33.1 L-79.4 35.7 L-78.4 38.3 L-77.3 41 L-76.1 43.5 L-74.9 46.1 L-73.5 48.6 L-72.1 51 L-70.6 53.5 L-69 55.8 L-67.3 58.2 L-65.6 60.5 L-63.8 62.7 L-61.9 64.9 L-59.9 67 L-57.8 69 L-55.7 71 L-53.5 73 L-51.3 74.8 L-48.9 76.6 L-46.6 78.3 L-44.1 80 L-41.6 81.6 L-39.1 83.1 L-36.4 84.5 L-33.8 85.8 L-31.1 87 L-28.3 88.2 L-25.5 89.3 L-22.7 90.3 L-19.8 91.2 L-16.9 92 L-14 92.7 L-11 93.3 L-8 93.8 L-5 94.2 L-2 94.6 L1.1 94.8 L4.1 94.9 L7.2 94.9 L10.3 94.9 L13.4 94.7 L16.4 94.4 L19.5 94.1 L22.6 93.6 L25.7 93 L28.7 92.4 L31.7 91.6 L34.7 90.7 L37.7 89.8 L40.7 88.7 L43.6 87.5 L46.5 86.3 L49.4 84.9 L52.2 83.5 L55 81.9 L57.7 80.3 L60.4 78.6 L63 76.7 L65.6 74.8 L68.1 72.8 L70.6 70.8 L94.6 94.8" fill="none" stroke="currentColor" stroke-width="5.3" stroke-linecap="round" stroke-linejoin="round"/><circle cx="0.0" cy="0.0" r="8.5" fill="currentColor"/></symbol><!--QOYL-MARK-SYMBOLS:END-->
+  </defs>
+</svg>
+
+<header class="hd">
+  <div class="wrap hd-in">
+    <a class="lockup" href="#top" aria-label="QOYL — home">
+      <svg class="mark" aria-hidden="true" focusable="false"><use href="#qoyl-mark"/></svg>
+      <span><span class="wordmark">Qoyl</span><span class="tagline">Full potential</span></span>
+    </a>
+    <nav class="nav" aria-label="Sections">
+      <a href="#services">Services</a>
+      <a href="#for-sale">For sale</a>
+      <a href="#about">About</a>
+      <a href="#contact">Contact</a>
+    </nav>
+  </div>
+  <div class="wrap"><div class="rule" aria-hidden="true"></div></div>
 </header>
 
-<main>
-  <img class="page" src="portfolio/page-1.png" alt="Portfolio page 1 — title page with deployment-cycle illustration and contents">
-  <img class="page" src="portfolio/page-2.png" alt="Portfolio page 2 — letter of introduction" loading="lazy">
-  <img class="page" src="portfolio/page-3.png" alt="Portfolio page 3 — qualification summary" loading="lazy">
-  <img class="page" src="portfolio/page-4.png" alt="Portfolio page 4 — career timeline figures" loading="lazy">
-  <img class="page" src="portfolio/page-5.png" alt="Portfolio page 5 — technical capabilities chart and table" loading="lazy">
-  <img class="page" src="portfolio/page-6.png" alt="Portfolio page 6 — selected projects and education" loading="lazy">
+<main id="main">
+
+<section class="hero" id="top" aria-labelledby="hero-title">
+  <div class="wrap hero-in">
+    <p class="label desk"><b>Cape Elizabeth</b> · Maine</p>
+    <h1 id="hero-title"><span>Computers fixed.</span> <span>Bikes tuned.</span> <span>Parts printed.</span></h1>
+    <p class="lede">A one-person technical shop: sixteen years of IT work, a large-format 3D printer, a bike stand, and a drone. Serving Greater Portland, in person or by mail.</p>
+    <div class="actions">
+      <a class="btn primary" href="mailto:qoyl@proton.me?subject=Job%20for%20QOYL">Email a job</a>
+      <a class="btn" href="#for-sale">What's for sale</a>
+    </div>
+    <p class="fine">No price list. Describe the job and you get a number back, usually the same day. <a href="mailto:qoyl@proton.me">qoyl@proton.me</a></p>
+    <svg class="watermark" aria-hidden="true" focusable="false"><use href="#qoyl-mark-thin"/></svg>
+  </div>
+</section>
+
+<section id="services" aria-labelledby="services-title">
+  <div class="wrap">
+    <div class="sec-head">
+      <div>
+        <span class="stroke" aria-hidden="true"></span>
+        <p class="label"><b>01</b> / Services</p>
+        <h2 id="services-title">What I do.</h2>
+      </div>
+      <p class="aside">Six things. If yours isn't listed, ask anyway.</p>
+    </div>
+
+    <ol class="ledger">
+      <li id="printing">
+        <span class="num">01</span>
+        <h3>3D printing</h3>
+        <div class="body">
+          <p>Parts printed to order on a QIDI Max 4. The bed is 390 × 390 × 340 mm, so brackets, enclosures, and replacement parts too big for a desktop printer come out here in one piece. Bring an STL, a broken original to measure, or a sketch on paper, and I'll model it first.</p>
+          <p class="spec"><span>PETG by default<span class="dot">·</span></span> <span>Other materials on request<span class="dot">·</span></span> <span>One-offs and small runs</span></p>
+        </div>
+      </li>
+      <li id="computers">
+        <span class="num">02</span>
+        <h3>Computer builds &amp; repair</h3>
+        <div class="body">
+          <p>Custom desktops built to a budget, upgrades, and component-level repair. Diagnosis on the bench, then a straight answer on whether it's worth fixing. When it isn't, I usually have a refurbished machine that is.</p>
+          <p class="spec"><span>Builds<span class="dot">·</span></span> <span>Upgrades<span class="dot">·</span></span> <span>Repairs<span class="dot">·</span></span> <span>Refurbished machines</span></p>
+        </div>
+      </li>
+      <li id="it-support">
+        <span class="num">03</span>
+        <h3>IT support</h3>
+        <div class="body">
+          <p>Sixteen years of desktop support in universities and small companies: Windows and Linux, printers, home networks, backups, malware cleanup, everything moved over to the new machine. In person around Greater Portland, or remote when that's enough.</p>
+          <p class="spec"><span>Homes and small offices<span class="dot">·</span></span> <span>Setup and migration<span class="dot">·</span></span> <span>Backups<span class="dot">·</span></span> <span>Networks</span></p>
+        </div>
+      </li>
+      <li id="bicycles">
+        <span class="num">04</span>
+        <h3>Bicycle repair</h3>
+        <div class="body">
+          <p>Tune-ups, flats, brakes, shifting, and full overhauls of the bike that has been in the garage since the move. I ride every day and fix my own; yours gets the same care.</p>
+          <p class="spec"><span>Tune-ups<span class="dot">·</span></span> <span>Brakes and shifting<span class="dot">·</span></span> <span>Flats<span class="dot">·</span></span> <span>Overhauls</span></p>
+        </div>
+      </li>
+      <li id="drone">
+        <span class="num">05</span>
+        <h3>Drone photography</h3>
+        <div class="body">
+          <p>Aerial photographs and video of houses, land, roofs, and events. Also the mapping side: orthomosaics and elevation models built from drone imagery, with GIS deliverables if you need them.</p>
+          <p class="spec"><span>Stills<span class="dot">·</span></span> <span>Video<span class="dot">·</span></span> <span>Roof and site views<span class="dot">·</span></span> <span>Orthomosaic maps</span></p>
+        </div>
+      </li>
+      <li id="used-goods">
+        <span class="num">06</span>
+        <h3>Used goods</h3>
+        <div class="body">
+          <p>Refurbished computers and parts, bikes and bike parts, and the surplus a shop like this collects. Tested before it's listed. <a class="more" href="#for-sale">The current shelf is below.</a></p>
+        </div>
+      </li>
+    </ol>
+  </div>
+</section>
+
+<section id="for-sale" aria-labelledby="sale-title">
+  <div class="wrap">
+    <div class="sec-head">
+      <div>
+        <span class="stroke" aria-hidden="true"></span>
+        <p class="label"><b>02</b> / For sale</p>
+        <h2 id="sale-title">On the shelf.</h2>
+      </div>
+      <p class="aside">Prices are firm and include a test before pickup. Local pickup in Cape Elizabeth; shipping on request.</p>
+    </div>
+    <div class="two-col">
+      <div class="intro">
+        <p>Refurbished desktops and laptops, parts pulled from upgrades, bikes and bike parts, and the odd tool. Everything here has been cleaned, tested, and described honestly.</p>
+        <p>After something specific? <a href="mailto:qoyl@proton.me?subject=Looking%20for%20something">Email and ask.</a> I may have it, or know where to get it.</p>
+        <div class="listed">
+          <span class="label">Also listed on</span>
+          <a href="https://www.ebay.com/usr/lo862370" rel="me noopener">eBay — lo862370</a>
+          <!-- More storefronts: uncomment and fill in when you have them.
+          <a href="https://www.facebook.com/marketplace/profile/XXXXXXXX" rel="me noopener">Facebook Marketplace</a>
+          <a href="https://maine.craigslist.org/search/sss?query=qoyl" rel="noopener">Craigslist</a>
+          -->
+        </div>
+      </div>
+      <div>
+        <table class="stock">
+          <thead>
+            <tr><th scope="col">Item</th><th scope="col">Condition</th><th scope="col">Price</th></tr>
+          </thead>
+          <tbody>
+            <!-- Add an item by copying one of these rows. Keep data-label on each cell (it labels the cell on phones).
+                 Mark a sold item by adding class="sold" to its <tr>; delete rows when they leave the shop.
+            <tr><td data-label="Item">Dell OptiPlex 7050 SFF — i5-7500, 16 GB, 512 GB SSD, Windows 11 Pro</td><td data-label="Condition">Refurbished, tested</td><td data-label="Price" class="price">$180</td></tr>
+            <tr><td data-label="Item">Trek FX 2 hybrid, 20"</td><td data-label="Condition">Tuned, new cables and tires</td><td data-label="Price" class="price">$220</td></tr>
+            <tr class="sold"><td data-label="Item">Ender 3 Pro</td><td data-label="Condition">Working, new bed springs</td><td data-label="Price" class="price">$90</td></tr>
+            -->
+            <tr class="empty"><td colspan="3">Nothing on the shelf right now. Email to ask what's coming in.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="about" aria-labelledby="about-title">
+  <div class="wrap">
+    <div class="sec-head">
+      <div>
+        <span class="stroke" aria-hidden="true"></span>
+        <p class="label"><b>03</b> / About</p>
+        <h2 id="about-title">From the desk of Louie.</h2>
+      </div>
+    </div>
+    <div class="about">
+      <div>
+        <div class="letter">
+          <p>I'm Louie. I've done IT support for sixteen years, at two universities, a telecom firm, and an alarm company, and finished a computer-science degree and a graduate certificate in GIS along the way. QOYL is the shop for everything that never fit in a job title: the printer, the bike stand, the drone, the bench full of parts.</p>
+          <p>It is one person. You talk to the one who does the work, and you get a plain record of what was done and what it cost.</p>
+        </div>
+        <div class="sig">
+          <div>
+            <div class="name">Louie</div>
+            <p class="label for">For QOYL</p>
+          </div>
+          <svg class="seal" viewBox="0 0 120 120" role="img" aria-label="QOYL seal: Cape Elizabeth, Maine, MMXXVI">
+            <defs>
+              <path id="seal-top" d="M19.43 70.87 A42 42 0 1 1 100.57 70.87"/>
+              <path id="seal-bottom" d="M19.43 70.87 A42 42 0 0 0 100.57 70.87"/>
+            </defs>
+            <circle cx="60" cy="60" r="57.5" fill="none" stroke="currentColor" stroke-width="1.4"/>
+            <circle cx="60" cy="60" r="30" fill="none" stroke="currentColor" stroke-width="1"/>
+            <text font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="8" font-weight="700" letter-spacing="1.2" fill="currentColor" text-anchor="middle">
+              <textPath href="#seal-top" startOffset="50%">QOYL · CAPE ELIZABETH</textPath>
+            </text>
+            <text font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="8" font-weight="700" letter-spacing="1.2" fill="currentColor" text-anchor="middle">
+              <textPath href="#seal-bottom" startOffset="50%">MAINE · MMXXVI</textPath>
+            </text>
+            <svg x="41" y="41.5" width="38" height="37"><use href="#qoyl-mark"/></svg>
+          </svg>
+        </div>
+      </div>
+      <aside class="particulars" aria-label="Particulars">
+        <dl>
+          <dt>Based</dt><dd>Cape Elizabeth, Maine</dd>
+          <dt>Serving</dt><dd>Greater Portland in person<small>Remote for IT work; mail-in for small printing and repair jobs</small></dd>
+          <dt>Education</dt><dd>B.S. Computer Science, University of Southern Maine, 2024<small>Graduate Certificate in GIS, University of Southern Maine, 2025</small></dd>
+          <dt>Elsewhere</dt><dd><a href="https://github.com/lhcoyle4">github.com/lhcoyle4</a><small><a href="portfolio/Coyle_Louis_General_Application.pdf">Résumé (PDF)</a> · <a href="core.html">Systems Core</a>, the old site, an instrument panel in WebAssembly</small></dd>
+        </dl>
+      </aside>
+    </div>
+  </div>
+</section>
+
+<section class="contact" id="contact" aria-labelledby="contact-title">
+  <div class="wrap contact-in">
+    <div class="tile">
+      <svg class="mark" aria-hidden="true" focusable="false"><use href="#qoyl-mark"/></svg>
+      <span><span class="wordmark">Qoyl</span><span class="tagline">Full potential</span></span>
+    </div>
+    <div>
+      <span class="stroke" aria-hidden="true"></span>
+      <p class="label"><b>04</b> / Contact</p>
+      <h2 id="contact-title">Email the shop.</h2>
+      <a class="email" href="mailto:qoyl@proton.me">qoyl@proton.me</a>
+      <p>Say what it is, what it's doing, and where you are. A photo helps. You'll get a plain answer and a price, and then we set a time.</p>
+      <p class="meta">Cape Elizabeth, Maine · House calls around Greater Portland · Pickup and drop-off by arrangement</p>
+    </div>
+  </div>
+</section>
+
 </main>
 
 <footer>
-  Prefer instruments to paper? The interactive WASM version of this site lives on as the
-  <a href="core.html">Systems Core</a>.<br>
-  Typeset in LaTeX (Palatino) &mdash; document sources on <a href="https://github.com/lhcoyle4">GitHub</a>.
+  <div class="wrap">
+    <div class="rule" aria-hidden="true"></div>
+    <div class="ft" style="margin-top:22px">
+      <span class="mono">QW-001 · REV A</span>
+      <span class="center">QOYL · Cape Elizabeth, Maine · <a href="mailto:qoyl@proton.me">qoyl@proton.me</a> · <a href="https://qoyl.store/">qoyl.store</a></span>
+      <span class="right">© 2026 QOYL · <a href="https://github.com/lhcoyle4/lhcoyle4.github.io">Source</a></span>
+      <span class="note">No cookies, no trackers, no JavaScript. Just a page.</span>
+    </div>
+  </div>
 </footer>
 
 </body>

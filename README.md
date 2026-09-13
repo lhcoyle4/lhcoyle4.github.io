@@ -1,40 +1,65 @@
-# lhcoyle4.github.io (WASM Portfolio)
+# qoyl.store
 
-This repository hosts my personal homepage and developer portfolio, built entirely from scratch in C++ and compiled to WebAssembly (WASM).
+The homepage of **QOYL**, a one-person technical shop in Cape Elizabeth, Maine:
+3D printing, computer builds and repair, IT support, bicycle repair, drone
+photography, and refurbished equipment for sale. Served by GitHub Pages at
+**[qoyl.store](https://qoyl.store/)** (the `CNAME` file) and mirrored at
+[lhcoyle4.github.io](https://lhcoyle4.github.io/).
 
-Visit the live page here: **[https://lhcoyle4.github.io/](https://lhcoyle4.github.io/)**
+## Layout
 
-## Engineering Philosophy & Architecture
-Modern web design is often bogged down by heavy frameworks (React, Angular), huge JS bundles, and DOM paint lag. This project follows the philosophy of **mechanical sympathy** and **stark zero-dependency systems engineering**:
+| Path | What it is |
+| --- | --- |
+| `index.html` | The whole site: one self-contained page, no JavaScript, no external fonts, no trackers. |
+| `brand/` | QOYL identity assets — the coil mark as SVG (ink, copper, white), favicon, Open Graph image, and the generator that draws them. |
+| `brand/make_mark.py` | Draws the mark from the geometry measured off the identity specimen (an Archimedean spiral, 2.05 turns, 45° tail). |
+| `brand/build_assets.py` | Regenerates the SVGs, bakes the mark into `index.html` as `<symbol>`s, and renders the PNG icons and `og.png` with Chromium. |
+| `tests/` | Browser and structure tests for the page (see below). |
+| `portfolio/` | Résumé and application portfolio PDFs, linked from the About section. |
+| `core.html`, `index.js`, `index.wasm`, `src/`, `imgui/` | The previous site, *Systems Core* — a Dear ImGui instrument panel compiled to WebAssembly. Still boots at [/core.html](https://qoyl.store/core.html). |
 
-* **Zero-DOM Rendering**: Bypasses the HTML Document Object Model entirely. The UI is drawn using the **Dear ImGui** immediate-mode framework and rendered directly to a WebGL2 canvas via pixel shaders.
-* **Low-Level Code**: Written in pure C++17, compiling into highly efficient WASM bytecode.
-* **Locked 60 FPS Performance**: Achieves native desktop-grade smoothness and sub-millisecond execution times.
-* **CRT Retro Dashboard Style**: Features an interactive retro shell terminal (complete with commands), real-time virtual CPU/RAM plots, project listings with custom flow diagrams, and a GIS coordinates radar scan simulation.
+## Editing the page
 
-## Repository Layout
-* `/src/main.cpp`: Main C++ application implementing tabs, state, shell, and custom graphics.
-* `/src/shell.html`: Custom retro-themed HTML shell with WebAssembly compilation loading bar.
-* `/imgui/`: Embedded Dear ImGui core rendering files and SDL2/OpenGL backends.
-* `build_wasm.ps1`: PowerShell build automation pipeline configuring EMSDK and calling the compiler.
-* `index.html`, `index.js`, `index.wasm`: The compiled WebAssembly distribution files served by GitHub Pages.
+Everything lives in `index.html`. The identity tokens are the CSS custom
+properties at the top of the `<style>` block (INK `#171A1F`, NAVY `#1C2A44`,
+COPPER `#A9762F`, SLATE `#67707E`, RULE `#DDE2E8`; Helvetica for headings and
+forms, Times for the letter; the wordmark is always letterspaced 30 %).
 
-## Building Locally
-To build this project from source, you need to have the Emscripten SDK installed.
+**For-sale list.** Find `<table class="stock">`. Copy one of the commented
+template rows into `<tbody>`, keep the `data-label` attributes (they label the
+cells on phones), and delete the `class="empty"` row once there is stock. Mark a
+sold item with `class="sold"` on its `<tr>`. Extra storefront links sit in a
+comment just above the table.
 
-1. Install and activate Emscripten (ensure `emsdk` is in the parent directory or update `build_wasm.ps1` path):
-   ```powershell
-   git clone https://github.com/emscripten-core/emsdk.git
-   cd emsdk
-   ./emsdk install latest
-   ./emsdk activate latest
-   ```
-2. Run the build script in this directory:
-   ```powershell
-   ./build_wasm.ps1
-   ```
-3. Test locally using a simple web server:
-   ```powershell
-   python -m http.server
-   ```
-   Open `http://localhost:8000` in your web browser.
+**The mark.** Don't hand-edit the `<symbol>` paths; change `brand/make_mark.py`
+and run:
+
+```sh
+pip install playwright && playwright install chromium   # once, for the PNGs
+python3 brand/build_assets.py                            # add --no-png to skip the PNGs
+```
+
+## Tests
+
+```sh
+pip install pytest playwright pillow && playwright install chromium
+python3 -m pytest brand tests -q
+```
+
+`brand/test_make_mark.py` checks the mark's geometry against the specimen
+measurements. `tests/test_site.py` serves the repo locally and checks the page:
+structure (one `h1`, heading order, every link and asset resolves, the only
+mailto is the shop address, no phone number, no placeholder copy), that it is
+self-contained, JSON-LD validity, no horizontal overflow at nine widths from
+320 px to 1920 px, the headline never wraps mid-sentence, nav links land on their
+sections, keyboard focus and the skip link work, the brand tokens apply, and
+the mobile table collapse. With `AXE_PATH` pointing at a local
+`axe-core/axe.min.js` it also runs a WCAG 2.1 AA audit at phone and desktop
+widths; with `html-validate` installed beside it, an HTML validation pass.
+
+## Building the legacy Systems Core
+
+Requires the Emscripten SDK; see `build_wasm.ps1` (Windows) or the
+`em++` invocation in `.github/workflows/build.yml`, which rebuilds it on CI
+whenever `src/` changes. Serve locally with `python -m http.server` and open
+`core.html`.
